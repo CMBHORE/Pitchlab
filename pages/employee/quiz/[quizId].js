@@ -93,25 +93,41 @@ export default function TakeQuiz() {
     saveAnswer(question.id, { chosenIndices: next });
   };
 
+  // Reads a File into base64 and uploads it through our own server to
+  // Google Drive, returning a usable link — replaces the old direct
+  // upload to Supabase Storage.
+  const uploadFileToDrive = async (file, question) => {
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const filename = `${quizId}-${question.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${file.name}`;
+    const res = await fetch("/api/drive-upload", {
+      method: "POST", headers: await authHeader(),
+      body: JSON.stringify({ base64Data, filename, mimeType: file.type || "application/octet-stream" }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Upload failed.");
+    return json.url;
+  };
+
   const doUpload = async (question, files) => {
     const existing = answers[question.id] || {};
     const existingPaths = existing.paths || [];
     const existingPreviews = existing.previews || [];
-    const room = Math.max(0, 5 - existingPaths.length);
+    const room = Math.max(0, 5 - existingPaths.length); // hard cap: 5 screenshots per answer
     const list = Array.from(files || []).slice(0, room);
     if (list.length === 0) return;
     setMsg(null);
     const newPreviews = list.map((f) => URL.createObjectURL(f));
     setAnswers((prev) => ({ ...prev, [question.id]: { ...existing, uploading: true, previews: [...existingPreviews, ...newPreviews] } }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const newPaths = [];
       for (const file of list) {
-        const ext = (file.name.split(".").pop() || "png").toLowerCase();
-        const path = `${session.user.id}/${quizId}/${question.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("quiz-screenshots").upload(path, file, { upsert: false });
-        if (upErr) throw new Error(upErr.message);
-        newPaths.push(path);
+        const url = await uploadFileToDrive(file, question);
+        newPaths.push(url);
       }
       // Append to whatever was already pasted, instead of replacing it —
       // this is what lets more than one paste build up into one answer.
