@@ -11,16 +11,24 @@ async function requireUser(req) {
   return { userId: data.user.id };
 }
 
-function mimeFor(path) {
-  const ext = (path.split(".").pop() || "png").toLowerCase();
-  return ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : "image/png";
+function mimeFor(_pathOrUrl) {
+  // Drive links have no file extension to inspect (unlike the old Supabase
+  // storage paths) — but every image this function is used for here is
+  // always a screenshot/reference photo, never a video, so this is safe.
+  return "image/jpeg";
 }
 
-async function downloadAsBase64(bucket, path) {
-  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
-  if (error || !data) return null;
-  const buffer = Buffer.from(await data.arrayBuffer());
-  return buffer.toString("base64");
+// Images are now stored on Google Drive (not Supabase Storage) — this
+// just fetches the file directly from its Drive link and encodes it.
+async function downloadAsBase64(_bucket, urlOrPath) {
+  try {
+    const res = await fetch(urlOrPath);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return buffer.toString("base64");
+  } catch {
+    return null;
+  }
 }
 
 async function gradeOneScreenshotQuestion(question, submittedPaths) {
