@@ -72,4 +72,4 @@ If anything fails, note the exact error message and send it over.
   Variables, never in the code. Never share it.
 - To stop random public sign-ups, in Supabase → Authentication → Providers/
   Settings, you can turn **off** "Allow new users to sign up". Employees are
-  created by the admin, so this is safe to disable.
+  created by the admin, so this is safe to  disable.
