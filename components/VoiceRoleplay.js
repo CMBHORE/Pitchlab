@@ -314,6 +314,27 @@ export default function VoiceRoleplay({ scenario, onClose }) {
     }
   };
 
+  // Uploads the recorded call audio to Google Drive (not Supabase Storage)
+  // and returns a directly-usable link — no separate "signed URL" step
+  // needed later, since the link works on its own.
+  const uploadRecordingToDrive = async (blob) => {
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const { data: { session } } = await supabase.auth.getSession();
+    const filename = `call-${session.user.id}-${scenario.id}-${Date.now()}.webm`;
+    const res = await fetch("/api/drive-upload", {
+      method: "POST", headers: await authHeader(),
+      body: JSON.stringify({ base64Data, filename, mimeType: "audio/webm" }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Recording upload failed.");
+    return json.url;
+  };
+
   const end = async () => {
     logEvent("call_ended_by_user");
     let blob = null;
@@ -338,15 +359,10 @@ export default function VoiceRoleplay({ scenario, onClose }) {
       const headers = await authHeader();
       let uploadPromise = Promise.resolve(null);
       if (blob && blob.size > 0) {
-        uploadPromise = (async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          const fileName = `${session.user.id}/${scenario.id}-${Date.now()}.webm`;
-          const { error: upErr } = await supabase.storage.from("call-recordings").upload(fileName, blob, {
-            contentType: "audio/webm", upsert: false,
-          });
-          if (upErr) { console.warn("Recording upload failed:", upErr.message); return null; }
-          return fileName;
-        })();
+        uploadPromise = uploadRecordingToDrive(blob).catch((e) => {
+          console.warn("Recording upload failed:", e.message);
+          return null;
+        });
       }
 
       const scorePromise = fetch("/api/score-roleplay-v6", {
@@ -354,7 +370,7 @@ export default function VoiceRoleplay({ scenario, onClose }) {
         body: JSON.stringify({ scenarioId: scenario.id, transcript }),
       }).then((r) => r.json().then((json) => ({ ok: r.ok, json })));
 
-      const [{ ok, json }, recordingPath] = await Promise.all([scorePromise, uploadPromise]);
+      const [{ ok, json }, recordingUrl] = await Promise.all([scorePromise, uploadPromise]);
 
       if (!ok || !json.saved) {
         setError(json.error || "Could not generate the report. Please try again.");
@@ -364,10 +380,10 @@ export default function VoiceRoleplay({ scenario, onClose }) {
       setReport(json.report);
       setScoring(false);
 
-      if (recordingPath && json.report?.id) {
+      if (recordingUrl && json.report?.id) {
         fetch("/api/attach-recording", {
           method: "POST", headers,
-          body: JSON.stringify({ resultId: json.report.id, recordingPath }),
+          body: JSON.stringify({ resultId: json.report.id, recordingUrl }),
         }).then((r) => r.json()).then((j) => {
           if (j.recording_url) setReport((prev) => prev && { ...prev, recording_url: j.recording_url });
         }).catch(() => {});
@@ -415,7 +431,7 @@ export default function VoiceRoleplay({ scenario, onClose }) {
               <div className="tile" style={{ marginBottom: 12 }}>
                 <div className="kpi-label">Opportunity Coverage</div>
                 <div className="mini" style={{ marginBottom: 6 }}>Did the rep catch these real operational pain points and pitch the right product?</div>
-{report.vas_coverage.filter(v => !v.identified).length > 0 && (
+                {report.vas_coverage.filter(v => !v.identified).length > 0 && (
                     <div className="mini" style={{ marginBottom: 8, fontWeight: 700, color: "var(--red-dark)" }}>
                       {report.vas_coverage.filter(v => !v.identified).length} of {report.vas_coverage.length} services not explained: {report.vas_coverage.filter(v => !v.identified).map(v => v.service_name).join(", ")}
                     </div>
