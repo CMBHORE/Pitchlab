@@ -36,13 +36,10 @@ export default function AdminReports() {
     })();
   }, [loading]);
 
-  const openReport = async (call) => {
-    let url = null;
-    if (call.recording_path) {
-      const { data } = await supabase.storage.from("call-recordings").createSignedUrl(call.recording_path, 3600);
-      url = data?.signedUrl || null;
-    }
-    setOpen({ ...call, recording_url: url });
+  // recording_path now holds a direct Google Drive link — used as-is,
+  // no signed-URL generation needed (unlike the old Supabase Storage flow).
+  const openReport = (call) => {
+    setOpen({ ...call, recording_url: call.recording_path || null });
   };
 
   useEffect(() => { setPage(1); }, [filterEmp, filterTeam, scoreFilter, sortBy, dateFrom, dateTo, searchText]);
@@ -303,7 +300,7 @@ export default function AdminReports() {
               {open.recording_url ? (
                 <a href={open.recording_url} target="_blank" rel="noreferrer" className="btn outline full no-print" style={{ marginTop: 14 }}>⬇ Download call recording</a>
               ) : (
-                <div className="mini no-print" style={{ marginTop: 14 }}>Recording unavailable (older than 30 days, or none was captured).</div>
+                <div className="mini no-print" style={{ marginTop: 14 }}>No recording available for this call.</div>
               )}
               <button className="btn dark full no-print" style={{ marginTop: 8 }} onClick={() => window.print()}>⬇ Download report as PDF</button>
             </div>
