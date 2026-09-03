@@ -11,6 +11,8 @@ export default function AdminQuizzes() {
   const [quizzes, setQuizzes] = useState([]);
   const [questionsByQuiz, setQuestionsByQuiz] = useState({});
   const [form, setForm] = useState({ course_id: "", title: "", pass_percent: 70, time_limit_minutes: "" });
+  const [editingQuiz, setEditingQuiz] = useState(null); // quizId currently being edited
+  const [quizEditForm, setQuizEditForm] = useState({});
   const [qForm, setQForm] = useState({}); // quizId -> question draft
   const [editingQ, setEditingQ] = useState({}); // quizId -> questionId being edited, or null
   const [msg, setMsg] = useState(null);
@@ -72,6 +74,23 @@ export default function AdminQuizzes() {
   };
 
   const delQuiz = async (id) => { if (confirm("Delete this quiz and all its questions?")) { await supabase.from("quizzes").delete().eq("id", id); load(); } };
+
+  const startEditQuiz = (quiz) => {
+    setEditingQuiz(quiz.id);
+    setQuizEditForm({ title: quiz.title, pass_percent: quiz.pass_percent, time_limit_minutes: quiz.time_limit_minutes || "" });
+  };
+  const cancelEditQuiz = () => { setEditingQuiz(null); setQuizEditForm({}); };
+  const saveQuizEdit = async (quizId) => {
+    if (!quizEditForm.title?.trim()) { setMsg("Quiz title can't be empty."); return; }
+    const { error } = await supabase.from("quizzes").update({
+      title: quizEditForm.title, pass_percent: Number(quizEditForm.pass_percent) || 70,
+      time_limit_minutes: quizEditForm.time_limit_minutes ? Number(quizEditForm.time_limit_minutes) : null,
+    }).eq("id", quizId);
+    if (error) { setMsg(error.message); return; }
+    setMsg("✓ Quiz settings updated.");
+    setEditingQuiz(null);
+    load();
+  };
 
   const getQForm = (quizId) => qForm[quizId] || blankQ;
   const setQ = (quizId, patch) => setQForm({ ...qForm, [quizId]: { ...getQForm(quizId), ...patch } });
@@ -357,6 +376,22 @@ export default function AdminQuizzes() {
           return (
             <div key={quiz.id} className="card" style={{ marginBottom: 12, overflow: "hidden" }}>
               {/* ---- Summary row (always visible) ---- */}
+              {editingQuiz === quiz.id ? (
+                <div style={{ padding: "16px 18px" }} onClick={(e) => e.stopPropagation()}>
+                  <div className="grid2">
+                    <label className="field"><span>Title</span>
+                      <input value={quizEditForm.title} onChange={(e) => setQuizEditForm({ ...quizEditForm, title: e.target.value })} /></label>
+                    <label className="field"><span>Pass mark (%)</span>
+                      <input type="number" min="0" max="100" value={quizEditForm.pass_percent} onChange={(e) => setQuizEditForm({ ...quizEditForm, pass_percent: e.target.value })} /></label>
+                    <label className="field"><span>Time limit in minutes (optional)</span>
+                      <input type="number" min="1" value={quizEditForm.time_limit_minutes} onChange={(e) => setQuizEditForm({ ...quizEditForm, time_limit_minutes: e.target.value })} placeholder="Leave blank for no limit" /></label>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn primary sm" onClick={() => saveQuizEdit(quiz.id)}>Save</button>
+                    <button className="btn ghost sm" onClick={cancelEditQuiz}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
               <div
                 className="row-between"
                 style={{ padding: "16px 18px", cursor: "pointer" }}
@@ -370,10 +405,12 @@ export default function AdminQuizzes() {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); startEditQuiz(quiz); }}>Edit</button>
                   <button className="btn danger sm" onClick={(e) => { e.stopPropagation(); delQuiz(quiz.id); }}>Delete</button>
                   <span style={{ fontSize: 18, color: "var(--muted)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
                 </div>
               </div>
+              )}
 
               {/* ---- Expanded detail panel ---- */}
               {isOpen && (
