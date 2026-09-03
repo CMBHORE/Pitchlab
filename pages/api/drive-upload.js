@@ -14,8 +14,10 @@ export const config = { api: { bodyParser: { sizeLimit: "15mb" } } };
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
-    return res.status(500).json({ error: "Google Drive isn't configured yet — missing environment variables." });
+  if (!process.env.GOOGLE_OAUTH_CLIENT_ID || !process.env.GOOGLE_OAUTH_CLIENT_SECRET || !process.env.GOOGLE_OAUTH_REFRESH_TOKEN || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
+    const missing = ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_REFRESH_TOKEN", "GOOGLE_DRIVE_FOLDER_ID"]
+      .filter((k) => !process.env[k]);
+    return res.status(500).json({ error: "Google Drive isn't configured — missing: " + missing.join(", ") + ". Check these are set in Vercel for the Production environment specifically." });
   }
 
   const gate = await requireUser(req);
