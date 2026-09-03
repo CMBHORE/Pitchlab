@@ -94,8 +94,21 @@ export default function AdminQuizzes() {
     setQ(quizId, { reference_images: uploaded });
     setRefUploading((prev) => ({ ...prev, [quizId]: false }));
     if (failures.length > 0) {
-      setMsg("⚠ " + failures.length + " reference image(s) FAILED to upload: " + failures.join("; ") + ". Check that GOOGLE_SERVICE_ACCOUNT_KEY and GOOGLE_DRIVE_FOLDER_ID are set correctly in Vercel.");
+      setMsg("⚠ " + failures.length + " reference image(s) FAILED to upload: " + failures.join("; "));
     }
+  };
+  // Lets the admin paste a screenshot straight in (Ctrl+V), the same way
+  // employees answer — instead of needing a file picker.
+  const handleReferencePaste = (quizId) => (e) => {
+    const items = e.clipboardData?.items || [];
+    const files = [];
+    for (const item of items) {
+      if (item.type && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) { e.preventDefault(); uploadReferenceImages(quizId, files); }
   };
   const removeReferenceImage = (quizId, url) => {
     const draft = getQForm(quizId);
@@ -190,6 +203,40 @@ export default function AdminQuizzes() {
   };
 
   const delQuestion = async (id) => { await supabase.from("quiz_questions").delete().eq("id", id); load(); };
+
+  // Manual reorder: swap this question with its neighbor and persist the
+  // new sort_order for both.
+  const moveQuestion = async (quizId, index, direction) => {
+    const list = [...(questionsByQuiz[quizId] || [])];
+    const target = index + direction;
+    if (target < 0 || target >= list.length) return;
+    const a = list[index], b = list[target];
+    await Promise.all([
+      supabase.from("quiz_questions").update({ sort_order: b.sort_order }).eq("id", a.id),
+      supabase.from("quiz_questions").update({ sort_order: a.sort_order }).eq("id", b.id),
+    ]);
+    load();
+  };
+
+  // Shuffles multiple-choice questions among themselves, and separately
+  // shuffles screenshot questions among themselves — the two types never
+  // get interleaved, each stays its own contiguous block.
+  const randomizeOrder = async (quizId) => {
+    const list = questionsByQuiz[quizId] || [];
+    const shuffle = (arr) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const mcqs = shuffle(list.filter((q) => q.question_type !== "screenshot"));
+    const shots = shuffle(list.filter((q) => q.question_type === "screenshot"));
+    const finalOrder = [...mcqs, ...shots];
+    await Promise.all(finalOrder.map((q, i) => supabase.from("quiz_questions").update({ sort_order: i }).eq("id", q.id)));
+    load();
+  };
 
   const downloadSampleCsv = () => {
     const rows = [
@@ -350,7 +397,12 @@ export default function AdminQuizzes() {
                       {questions.length === 0 ? (
                         <div className="mini">No questions yet — switch to the "Add question" tab to create one, or "Bulk upload" to add several at once.</div>
                       ) : (
-                        <div className="card">
+                        <>
+                          <div className="row-between" style={{ marginBottom: 10 }}>
+                            <div className="mini">Use ↑↓ to reorder manually, or shuffle automatically — multiple-choice and screenshot questions are always shuffled separately, never mixed together.</div>
+                            <button type="button" className="btn outline sm" onClick={() => randomizeOrder(quiz.id)}>🔀 Randomize order</button>
+                          </div>
+                          <div className="card">
                           <table className="table">
                             <thead><tr><th style={{ width: 36 }}>#</th><th>Question</th><th></th></tr></thead>
                             <tbody>
@@ -387,6 +439,8 @@ export default function AdminQuizzes() {
                                       )}
                                     </td>
                                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                      <button className="btn ghost sm" disabled={i === 0} onClick={() => moveQuestion(quiz.id, i, -1)} title="Move up">↑</button>
+                                      <button className="btn ghost sm" disabled={i === questions.length - 1} onClick={() => moveQuestion(quiz.id, i, 1)} title="Move down">↓</button>
                                       <button className="btn ghost sm" onClick={() => { startEdit(quiz.id, q); setTab("add"); }}>Edit</button>
                                       <button className="btn ghost sm" onClick={() => delQuestion(q.id)}>Remove</button>
                                     </td>
@@ -395,7 +449,8 @@ export default function AdminQuizzes() {
                               })}
                             </tbody>
                           </table>
-                        </div>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
@@ -434,9 +489,17 @@ export default function AdminQuizzes() {
                               placeholder="e.g. A screenshot from the Petpooja admin portal's KDS screen showing at least one order in 'Preparing' status, with the order items visible." />
                           </label>
                           <label className="field">
-                            <span>Upload correct example screenshots (optional, but recommended — the AI will compare an employee's answer against the real content in these, like item names, prices, or contact details)</span>
-                            <input type="file" accept="image/*" multiple onChange={(e) => uploadReferenceImages(quiz.id, e.target.files)} />
+                            <span>Add correct example screenshots (optional, but recommended — the AI will compare an employee's answer against the real content in these, like item names, prices, or contact details)</span>
                           </label>
+                          <div
+                            tabIndex={0}
+                            onPaste={handleReferencePaste(quiz.id)}
+                            style={{ border: "2px dashed var(--line)", borderRadius: 10, padding: 20, textAlign: "center", cursor: "text", outline: "none", marginBottom: 10 }}
+                          >
+                            <div style={{ fontSize: 26 }}>📋</div>
+                            <div className="mini" style={{ marginTop: 6 }}>Click here, then press <b>Ctrl+V</b> (or ⌘V on Mac) to paste a correct example screenshot</div>
+                            <div className="mini">Paste again to add more.</div>
+                          </div>
                           {refUploading[quiz.id] && <div className="mini" style={{ marginBottom: 10 }}>Uploading…</div>}
                           {(draft.reference_images || []).length > 0 && (
                             <div className="mini" style={{ marginBottom: 12 }}>
