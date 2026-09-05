@@ -251,17 +251,16 @@ export default function TakeQuiz() {
         {showCert && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(17,22,26,.6)", display: "grid", placeItems: "center", padding: 20, zIndex: 60 }} onClick={() => setShowCert(false)}>
             <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", maxWidth: 700, width: "100%", borderRadius: 12 }}>
-              <div id="certificate-printable" style={{ border: "10px solid #6d4aff", padding: "50px 40px", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                <div style={{ fontSize: 13, letterSpacing: 3, color: "#6d4aff", fontWeight: 700 }}>PETPOOJA · PITCHLAB</div>
-                <div style={{ fontSize: 28, fontWeight: 700, marginTop: 20 }}>Certificate of Completion</div>
-                <div style={{ fontSize: 14, color: "#666", marginTop: 24 }}>This certifies that</div>
-                <div style={{ fontSize: 32, fontWeight: 700, marginTop: 8, borderBottom: "2px solid #6d4aff", display: "inline-block", padding: "0 20px 8px" }}>{me?.full_name}</div>
-                <div style={{ fontSize: 14, color: "#666", marginTop: 24 }}>has successfully completed the assessment</div>
-                <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>{quiz.title}</div>
-                <div style={{ fontSize: 14, color: "#666", marginTop: 30 }}>
-                  Completed on {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString()}
+              <div id="certificate-printable" style={{ position: "relative", width: "100%", lineHeight: 0 }}>
+                <img src="/certificate-template.png" alt="" style={{ width: "100%", display: "block" }} />
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                  <div style={{ fontSize: "clamp(20px, 4vw, 34px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
                 </div>
-                <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>Final Score: {result.score}%</div>
+                <div style={{ position: "absolute", bottom: "12%", left: "50%", transform: "translateX(-50%)", width: "100%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                  <div style={{ fontSize: "clamp(11px, 1.6vw, 15px)", color: "#444" }}>
+                    {quiz.title} · {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString()} · Score: {result.score}%
+                  </div>
+                </div>
               </div>
               <div className="no-print" style={{ display: "flex", gap: 10, padding: 16 }}>
                 <button className="btn outline full" onClick={() => setShowCert(false)}>Close</button>
