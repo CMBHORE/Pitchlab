@@ -27,6 +27,7 @@ export default function TakeQuiz() {
   const [initializing, setInitializing] = useState(true);
   const [current, setCurrent] = useState(0);
   const [showSubmitPopup, setShowSubmitPopup] = useState(false);
+  const [showCert, setShowCert] = useState(false);
 
   const timerRef = useRef(null);
   const autoSubmittedRef = useRef(false);
@@ -43,6 +44,24 @@ export default function TakeQuiz() {
       const { data: qs } = await supabase.from("quiz_questions").select("*").eq("quiz_id", quizId).order("sort_order", { ascending: true });
       setQuiz(q);
       setQuestions(qs || []);
+
+      // No retakes — if this employee already has a finished attempt
+      // (completed or awaiting admin review), show that result instead of
+      // letting them start over.
+      const { data: alreadyDone } = await supabase
+        .from("quiz_attempts").select("*")
+        .eq("quiz_id", quizId).eq("user_id", me.id).in("status", ["completed", "pending_review"])
+        .order("submitted_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (alreadyDone) {
+        setResult({
+          score: alreadyDone.score, passed: alreadyDone.passed,
+          needsReview: alreadyDone.status === "pending_review", alreadyTaken: true,
+          completedAt: alreadyDone.reviewed_at || alreadyDone.submitted_at,
+        });
+        setInitializing(false);
+        return;
+      }
 
       const { data: existing } = await supabase
         .from("quiz_attempts").select("*")
@@ -194,12 +213,16 @@ export default function TakeQuiz() {
   if (loading || initializing || !quiz) return <div className="center-screen"><div className="mini">Loading…</div></div>;
 
   if (result) {
+    const showCertificate = result.passed && !result.needsReview;
     return (
       <div className="shell">
         <Sidebar role="employee" me={me} />
         <main className="content">
           <h1 className="page">{quiz.title}</h1>
           <div className="card pad" style={{ textAlign: "center" }}>
+            {result.alreadyTaken && (
+              <div className="mini" style={{ marginBottom: 12, color: "#946200" }}>You've already completed this assessment — retakes aren't allowed.</div>
+            )}
             {result.needsReview ? (
               <>
                 <div style={{ fontSize: 40 }}>🕐</div>
@@ -213,14 +236,40 @@ export default function TakeQuiz() {
                 <div className="kpi" style={{ fontSize: 44 }}>{result.score}%</div>
                 <div style={{ marginTop: 12 }}>
                   <span className={`pill ${result.passed ? "red" : "gray"}`} style={result.passed ? { background: "#e8f6ee", color: "#15803d" } : {}}>
-                    {result.passed ? "✓ Passed" : "Not passed — you can retry"}
+                    {result.passed ? "✓ Passed" : "Not passed"}
                   </span>
                 </div>
               </>
             )}
-            <button className="btn primary" style={{ marginTop: 18 }} onClick={() => router.push("/employee/courses")}>Back to courses</button>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
+              {showCertificate && <button className="btn outline" onClick={() => setShowCert(true)}>🎓 View Certificate</button>}
+              <button className="btn primary" onClick={() => router.push("/employee/courses")}>Back to courses</button>
+            </div>
           </div>
         </main>
+
+        {showCert && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(17,22,26,.6)", display: "grid", placeItems: "center", padding: 20, zIndex: 60 }} onClick={() => setShowCert(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", maxWidth: 700, width: "100%", borderRadius: 12 }}>
+              <div id="certificate-printable" style={{ border: "10px solid #6d4aff", padding: "50px 40px", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                <div style={{ fontSize: 13, letterSpacing: 3, color: "#6d4aff", fontWeight: 700 }}>PETPOOJA · PITCHLAB</div>
+                <div style={{ fontSize: 28, fontWeight: 700, marginTop: 20 }}>Certificate of Completion</div>
+                <div style={{ fontSize: 14, color: "#666", marginTop: 24 }}>This certifies that</div>
+                <div style={{ fontSize: 32, fontWeight: 700, marginTop: 8, borderBottom: "2px solid #6d4aff", display: "inline-block", padding: "0 20px 8px" }}>{me?.full_name}</div>
+                <div style={{ fontSize: 14, color: "#666", marginTop: 24 }}>has successfully completed the assessment</div>
+                <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>{quiz.title}</div>
+                <div style={{ fontSize: 14, color: "#666", marginTop: 30 }}>
+                  Completed on {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString()}
+                </div>
+                <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>Final Score: {result.score}%</div>
+              </div>
+              <div className="no-print" style={{ display: "flex", gap: 10, padding: 16 }}>
+                <button className="btn outline full" onClick={() => setShowCert(false)}>Close</button>
+                <button className="btn primary full" onClick={() => window.print()}>⬇ Download as PDF</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
