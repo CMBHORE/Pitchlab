@@ -253,12 +253,16 @@ export default function TakeQuiz() {
             <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", maxWidth: 700, width: "100%", borderRadius: 12 }}>
               <div id="certificate-printable" style={{ position: "relative", width: "100%", lineHeight: 0 }}>
                 <img src="/certificate-template.png" alt="" style={{ width: "100%", display: "block" }} />
-                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ fontSize: "clamp(20px, 4vw, 34px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                  <div style={{ display: "inline-block", background: "rgba(255,255,255,0.75)", padding: "4px 24px", borderRadius: 6 }}>
+                    <div style={{ fontSize: "clamp(20px, 4vw, 34px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
+                  </div>
                 </div>
-                <div style={{ position: "absolute", bottom: "12%", left: "50%", transform: "translateX(-50%)", width: "100%", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ fontSize: "clamp(11px, 1.6vw, 15px)", color: "#444" }}>
-                    {quiz.title} · {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString()} · Score: {result.score}%
+                <div style={{ position: "absolute", bottom: "12%", left: "50%", transform: "translateX(-50%)", width: "90%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                  <div style={{ display: "inline-block", background: "rgba(255,255,255,0.75)", padding: "2px 16px", borderRadius: 6 }}>
+                    <div style={{ fontSize: "clamp(11px, 1.6vw, 15px)", color: "#444" }}>
+                      {quiz.title} · {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString()} · Score: {result.score}%
+                    </div>
                   </div>
                 </div>
               </div>
