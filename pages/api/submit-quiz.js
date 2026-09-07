@@ -167,10 +167,11 @@ export default async function handler(req, res) {
   const passed = score >= (quiz?.pass_percent || 70);
   const status = hasScreenshots ? "pending_review" : "completed";
 
+  const completedAt = new Date().toISOString();
   const { error: updErr } = await supabaseAdmin.from("quiz_attempts").update({
-    status, score, passed, submitted_at: new Date().toISOString(), ai_review: aiReview,
+    status, score, passed, submitted_at: completedAt, ai_review: aiReview,
   }).eq("id", attemptId);
   if (updErr) return res.status(500).json({ error: updErr.message });
 
-  return res.status(200).json({ submitted: true, status, score, passed, needsReview: hasScreenshots });
+  return res.status(200).json({ submitted: true, status, score, passed, needsReview: hasScreenshots, completedAt });
 }
