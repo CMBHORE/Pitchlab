@@ -217,7 +217,7 @@ export default function MyAssessmentScores() {
                     <div style={{ fontSize: "clamp(18px, 3.2vw, 30px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
                   </div>
                 </div>
-                <div style={{ position: "absolute", top: "80%", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                <div style={{ position: "absolute", top: "83%", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontFamily: "Georgia, serif" }}>
                   <div style={{ display: "inline-block", background: "#ffffff", padding: "3px 12px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(12px, 1.8vw, 16px)", color: "#333" }}>
                       {new Date(open.reviewed_at || open.submitted_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
