@@ -98,13 +98,19 @@ export default function Employees() {
   if (loading) return <div className="center-screen"><div className="mini">Loading…</div></div>;
 
   // Group employees by team name; anyone without a team lands in "Unassigned".
+  // A scoped admin (trainer) only ever sees the teams they've been
+  // explicitly assigned — a true Super Admin sees everyone.
+  const isScoped = me?.role === "trainer";
+  const scopedTeams = new Set(me?.assigned_teams || []);
+  const scopedList = isScoped ? list.filter((emp) => scopedTeams.has(emp.team?.trim())) : list;
+
   const teamMap = {};
-  list.forEach((emp) => {
+  scopedList.forEach((emp) => {
     const t = emp.team?.trim() || "Unassigned";
     (teamMap[t] = teamMap[t] || []).push(emp);
   });
   const teamNames = Object.keys(teamMap).sort((a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)));
-  const visibleList = selectedTeam ? (teamMap[selectedTeam] || []) : list;
+  const visibleList = selectedTeam ? (teamMap[selectedTeam] || []) : scopedList;
 
   return (
     <div className="shell">
@@ -129,22 +135,24 @@ export default function Employees() {
           </div>
         )}
 
-        <div className="card pad" style={{ marginBottom: 22 }}>
-          <div style={{ fontWeight: 700, marginBottom: 14 }}>Add a new employee</div>
-          <form onSubmit={create}>
-            <div className="grid2">
-              <label className="field"><span>Full name</span>
-                <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></label>
-              <label className="field"><span>Team (optional)</span>
-                <input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} placeholder="SMB Sales" /></label>
-              <label className="field"><span>Email (their login)</span>
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
-              <label className="field"><span>Temporary password</span>
-                <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="min 6 characters" required minLength={6} /></label>
-            </div>
-            <button className="btn primary" disabled={busy}>{busy ? "Creating…" : "Create employee"}</button>
-          </form>
-        </div>
+        {(me?.role === "admin" || me?.permissions?.employees) && (
+          <div className="card pad" style={{ marginBottom: 22 }}>
+            <div style={{ fontWeight: 700, marginBottom: 14 }}>Add a new employee</div>
+            <form onSubmit={create}>
+              <div className="grid2">
+                <label className="field"><span>Full name</span>
+                  <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></label>
+                <label className="field"><span>Team (optional)</span>
+                  <input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} placeholder="SMB Sales" /></label>
+                <label className="field"><span>Email (their login)</span>
+                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
+                <label className="field"><span>Temporary password</span>
+                  <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="min 6 characters" required minLength={6} /></label>
+              </div>
+              <button className="btn primary" disabled={busy}>{busy ? "Creating…" : "Create employee"}</button>
+            </form>
+          </div>
+        )}
 
         {selectedTeam && (
           <>
