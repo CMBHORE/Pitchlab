@@ -212,18 +212,13 @@ export default function MyAssessmentScores() {
             <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", maxWidth: 700, width: "100%", borderRadius: 12 }}>
               <div id="certificate-printable" style={{ position: "relative", width: "100%", lineHeight: 0 }}>
                 <img src="/certificate-template.png" alt="" style={{ width: "100%", display: "block" }} />
-                <div style={{ position: "absolute", top: "36%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ display: "inline-block", background: "rgba(255,255,255,0.85)", padding: "3px 20px", borderRadius: 6 }}>
+                <div style={{ position: "absolute", top: "44%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                  <div style={{ display: "inline-block", background: "#ffffff", padding: "4px 24px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(18px, 3.2vw, 30px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
                   </div>
                 </div>
-                <div style={{ position: "absolute", top: "45%", left: "50%", transform: "translate(-50%, -50%)", width: "85%", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ display: "inline-block", background: "rgba(255,255,255,0.85)", padding: "2px 16px", borderRadius: 6 }}>
-                    <div style={{ fontSize: "clamp(13px, 2vw, 18px)", fontWeight: 600, color: "#333" }}>{quizzes[open.quiz_id]}</div>
-                  </div>
-                </div>
-                <div style={{ position: "absolute", top: "70%", left: "8%", textAlign: "left", fontFamily: "Georgia, serif" }}>
-                  <div style={{ display: "inline-block", background: "rgba(255,255,255,0.85)", padding: "2px 10px", borderRadius: 6 }}>
+                <div style={{ position: "absolute", top: "68%", left: "10%", textAlign: "left", fontFamily: "Georgia, serif" }}>
+                  <div style={{ display: "inline-block", background: "#ffffff", padding: "3px 12px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(12px, 1.8vw, 16px)", color: "#333" }}>
                       {new Date(open.reviewed_at || open.submitted_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                     </div>
