@@ -260,7 +260,7 @@ export default function TakeQuiz() {
                   </div>
                 </div>
                 {/* Date — moved down to sit exactly on "17 May 2025" next to "Date of Completion:", fully opaque */}
-                <div style={{ position: "absolute", top: "80%", left: "10%", textAlign: "left", fontFamily: "Georgia, serif" }}>
+                <div style={{ position: "absolute", top: "80%", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontFamily: "Georgia, serif" }}>
                   <div style={{ display: "inline-block", background: "#ffffff", padding: "3px 12px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(12px, 1.8vw, 16px)", color: "#333" }}>
                       {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
