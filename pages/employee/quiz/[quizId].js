@@ -254,13 +254,13 @@ export default function TakeQuiz() {
               <div id="certificate-printable" style={{ position: "relative", width: "100%", lineHeight: 0 }}>
                 <img src="/certificate-template.png" alt="" style={{ width: "100%", display: "block" }} />
                 {/* Name — moved down to sit exactly on "your Name Here", fully opaque so nothing shows through */}
-                <div style={{ position: "absolute", top: "44%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
+                <div style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
                   <div style={{ display: "inline-block", background: "#ffffff", padding: "4px 24px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(18px, 3.2vw, 30px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
                   </div>
                 </div>
                 {/* Date — moved down to sit exactly on "17 May 2025" next to "Date of Completion:", fully opaque */}
-                <div style={{ position: "absolute", top: "68%", left: "10%", textAlign: "left", fontFamily: "Georgia, serif" }}>
+                <div style={{ position: "absolute", top: "80%", left: "10%", textAlign: "left", fontFamily: "Georgia, serif" }}>
                   <div style={{ display: "inline-block", background: "#ffffff", padding: "3px 12px", borderRadius: 6 }}>
                     <div style={{ fontSize: "clamp(12px, 1.8vw, 16px)", color: "#333" }}>
                       {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
