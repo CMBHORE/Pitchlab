@@ -28,7 +28,7 @@ export default function Sidebar({ role, me }) {
       { label: null, links: [["/admin", "Overview"]] },
       { label: "Training", links: STAFF_LINKS.map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.map(([h, l]) => [h, l]) },
-      { label: null, links: [["/admin/employees", "Team"]] },
+      { label: null, links: [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"]] },
     ];
   } else if (role === "trainer") {
     const perms = me?.permissions || {};
