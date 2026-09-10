@@ -58,13 +58,31 @@ export default function Sidebar({ role, me }) {
     router.replace("/login");
   };
 
+  // Lets someone jump straight to the log-out button at the bottom
+  // without manually scrolling past a long list of nav links.
+  const scrollToLogout = () => {
+    document.getElementById("sidebar-logout-btn")?.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ position: "relative" }}>
       <div className="row-between" style={{ padding: "0 5px" }}>
         <img src="/petpooja.png" alt="Petpooja" className="brand-logo" />
         <ThemeToggle />
       </div>
       <div className="brand-sub" style={{ padding: "0 5px" }}><b>PitchLab</b> · Sales Training</div>
+
+      <button
+        onClick={scrollToLogout}
+        title="Jump to Log out"
+        style={{
+          position: "absolute", top: 10, right: 10, zIndex: 5,
+          width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--line)",
+          background: "var(--card)", cursor: "pointer", fontSize: 14, lineHeight: 1,
+        }}
+      >
+        ↓
+      </button>
 
       <nav className="nav">
         {groups.map((g, gi) => (
@@ -101,7 +119,7 @@ export default function Sidebar({ role, me }) {
           </div>
         </div>
       </div>
-      <button className="btn ghost full" onClick={logout} style={{ marginTop: 6 }}>Log out</button>
+      <button id="sidebar-logout-btn" className="btn ghost full" onClick={logout} style={{ marginTop: 6 }}>Log out</button>
     </aside>
   );
 }
