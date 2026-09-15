@@ -12,14 +12,9 @@ async function requireUser(req) {
 }
 
 function mimeFor(_pathOrUrl) {
-  // Drive links have no file extension to inspect (unlike the old Supabase
-  // storage paths) — but every image this function is used for here is
-  // always a screenshot/reference photo, never a video, so this is safe.
   return "image/jpeg";
 }
 
-// Images are now stored on Google Drive (not Supabase Storage) — this
-// just fetches the file directly from its Drive link and encodes it.
 async function downloadAsBase64(_bucket, urlOrPath) {
   try {
     const res = await fetch(urlOrPath);
@@ -31,13 +26,12 @@ async function downloadAsBase64(_bucket, urlOrPath) {
   }
 }
 
-async function gradeOneScreenshotQuestion(question, submittedPaths) {
+async function gradeOneScreenshotQuestion(question, submittedPaths, employeeNote) {
   const submittedImages = [];
   for (const path of (submittedPaths || []).slice(0, 5)) {
     const b64 = await downloadAsBase64("quiz-screenshots", path);
     if (b64) submittedImages.push({ path, base64: b64 });
   }
-  console.log("[quiz-grading] question:", question.id, "submitted paths given:", (submittedPaths || []).length, "successfully downloaded:", submittedImages.length);
   if (submittedImages.length === 0) return { correct: false, feedback: "No screenshot was submitted for this question." };
 
   const referencePaths = Array.isArray(question.reference_images) ? question.reference_images.slice(0, 5) : [];
@@ -46,11 +40,7 @@ async function gradeOneScreenshotQuestion(question, submittedPaths) {
     const b64 = await downloadAsBase64("quiz-reference-images", path);
     if (b64) referenceImages.push({ path, base64: b64 });
   }
-  console.log("[quiz-grading] question:", question.id, "reference paths given:", referencePaths.length, "successfully downloaded:", referenceImages.length, "has answer_guide:", !!question.answer_guide);
 
-  // If the admin attached references but none could actually be loaded
-  // (a storage problem, not a content problem), be upfront about it
-  // rather than silently grading as if no reference existed at all.
   if (referencePaths.length > 0 && referenceImages.length === 0) {
     return { correct: false, feedback: "This question has reference images attached, but none of them could be loaded for comparison — likely a storage setup issue. Please check the 'quiz-reference-images' bucket and re-upload the reference, then manually review this answer." };
   }
@@ -70,6 +60,10 @@ async function gradeOneScreenshotQuestion(question, submittedPaths) {
 
   parts.push({ text: "Now here " + (submittedImages.length === 1 ? "is the EMPLOYEE'S submitted screenshot" : "are the EMPLOYEE'S " + submittedImages.length + " submitted screenshots, together forming their one answer") + " to grade:" });
   submittedImages.forEach((img) => { parts.push({ inline_data: { mime_type: mimeFor(img.path), data: img.base64 } }); });
+
+  if (employeeNote && employeeNote.trim()) {
+    parts.push({ text: "The employee also added this written note alongside their screenshot(s) — take it into account when judging their answer: \"" + employeeNote.trim().slice(0, 600) + "\"" });
+  }
 
   parts.push({
     text: [
@@ -103,17 +97,12 @@ async function gradeOneScreenshotQuestion(question, submittedPaths) {
 
   try {
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    // Same class of bug we fixed once before: !!value treats the literal
-    // STRING "false" as true (any non-empty string is truthy). Parse the
-    // actual meaning instead of just checking whether something was sent.
     const toBool = (v) => {
       if (typeof v === "boolean") return v;
       if (typeof v === "string") { const s = v.trim().toLowerCase(); return s === "true" || s === "yes" || s === "1"; }
       return !!v;
     };
-    const finalCorrect = toBool(parsed.correct);
-    console.log("[quiz-grading] question:", question.id, "raw AI response:", text.slice(0, 300), "parsed correct:", finalCorrect);
-    return { correct: finalCorrect, feedback: String(parsed.feedback || "").slice(0, 400) };
+    return { correct: toBool(parsed.correct), feedback: String(parsed.feedback || "").slice(0, 400) };
   } catch {
     return { correct: false, feedback: "Could not be reviewed automatically — needs admin attention." };
   }
@@ -138,19 +127,31 @@ export default async function handler(req, res) {
   const { data: questions } = await supabaseAdmin.from("quiz_questions").select("*").eq("quiz_id", attempt.quiz_id).order("sort_order", { ascending: true });
 
   const answers = attempt.answers || {};
-  let correctCount = 0;
-  const aiReview = [];
-  let hasScreenshots = false;
+  const allQuestions = questions || [];
+  const screenshotQuestions = allQuestions.filter((q) => q.question_type === "screenshot");
+  const hasScreenshots = screenshotQuestions.length > 0;
 
-  for (const q of questions || []) {
-    const a = answers[q.id];
+  // Grade every screenshot question AT THE SAME TIME instead of one after
+  // another — this is what actually cuts submit time down when an
+  // assessment has several image questions, since they no longer wait
+  // in a queue for each other's full AI round-trip to finish first.
+  const gradingResults = await Promise.all(
+    screenshotQuestions.map((q) => {
+      const a = answers[q.id];
+      return gradeOneScreenshotQuestion(q, a?.paths || [], a?.description)
+        .then((verdict) => ({ questionId: q.id, question: q.question, paths: a?.paths || [], correct: verdict.correct, feedback: verdict.feedback, adminOverride: null }));
+    })
+  );
+  const aiReview = gradingResults;
+  const aiReviewByQ = {};
+  aiReview.forEach((r) => { aiReviewByQ[r.questionId] = r; });
+
+  let correctCount = 0;
+  for (const q of allQuestions) {
     if (q.question_type === "screenshot") {
-      hasScreenshots = true;
-      const paths = a?.paths || [];
-      const verdict = await gradeOneScreenshotQuestion(q, paths);
-      aiReview.push({ questionId: q.id, question: q.question, paths, correct: verdict.correct, feedback: verdict.feedback, adminOverride: null });
-      if (verdict.correct) correctCount += 1;
+      if (aiReviewByQ[q.id]?.correct) correctCount += 1;
     } else {
+      const a = answers[q.id];
       const correctSet = new Set(Array.isArray(q.correct_indices) ? q.correct_indices : [q.correct_index]);
       if (q.multi_correct) {
         const chosen = new Set(a?.chosenIndices || []);
@@ -162,7 +163,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const total = (questions || []).length;
+  const total = allQuestions.length;
   const score = total > 0 ? Math.round((correctCount / total) * 100) : 0;
   const passed = score >= (quiz?.pass_percent || 70);
   const status = hasScreenshots ? "pending_review" : "completed";
