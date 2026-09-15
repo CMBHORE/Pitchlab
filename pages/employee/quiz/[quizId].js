@@ -5,8 +5,9 @@ import { supabase } from "../../../lib/supabaseClient";
 import Sidebar from "../../../components/Sidebar";
 
 function formatClock(totalSeconds) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
+  const clamped = Math.max(0, totalSeconds);
+  const m = Math.floor(clamped / 60);
+  const s = clamped % 60;
   return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
@@ -21,13 +22,13 @@ export default function TakeQuiz() {
   const [answers, setAnswers] = useState({});
   const [skipped, setSkipped] = useState(new Set());
   const [timeLeft, setTimeLeft] = useState(null);
+  const [timeUp, setTimeUp] = useState(false); // locks the whole quiz the instant time hits zero
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
   const [initializing, setInitializing] = useState(true);
   const [current, setCurrent] = useState(0);
   const [showSubmitPopup, setShowSubmitPopup] = useState(false);
-  const [showCert, setShowCert] = useState(false);
 
   const timerRef = useRef(null);
   const autoSubmittedRef = useRef(false);
@@ -45,24 +46,6 @@ export default function TakeQuiz() {
       setQuiz(q);
       setQuestions(qs || []);
 
-      // No retakes — if this employee already has a finished attempt
-      // (completed or awaiting admin review), show that result instead of
-      // letting them start over.
-      const { data: alreadyDone } = await supabase
-        .from("quiz_attempts").select("*")
-        .eq("quiz_id", quizId).eq("user_id", me.id).in("status", ["completed", "pending_review"])
-        .order("submitted_at", { ascending: false }).limit(1).maybeSingle();
-
-      if (alreadyDone) {
-        setResult({
-          score: alreadyDone.score, passed: alreadyDone.passed,
-          needsReview: alreadyDone.status === "pending_review", alreadyTaken: true,
-          completedAt: alreadyDone.reviewed_at || alreadyDone.submitted_at,
-        });
-        setInitializing(false);
-        return;
-      }
-
       const { data: existing } = await supabase
         .from("quiz_attempts").select("*")
         .eq("quiz_id", quizId).eq("user_id", me.id).eq("status", "in_progress")
@@ -73,7 +56,9 @@ export default function TakeQuiz() {
         setAnswers(existing.answers || {});
         if (q?.time_limit_minutes) {
           const elapsed = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
-          setTimeLeft(Math.max(0, q.time_limit_minutes * 60 - elapsed));
+          const remaining = q.time_limit_minutes * 60 - elapsed;
+          setTimeLeft(Math.max(0, remaining));
+          if (remaining <= 0) setTimeUp(true); // they came back after time already expired
         }
       } else {
         const { data: created } = await supabase
@@ -87,18 +72,23 @@ export default function TakeQuiz() {
     })();
   }, [loading, quizId, me]);
 
+  // The instant time hits zero: lock the whole quiz immediately (before
+  // the submission itself even finishes), so nothing stays clickable
+  // during that gap, and auto-submit exactly once.
   useEffect(() => {
     if (timeLeft === null || result) return;
     if (timeLeft <= 0) {
-      if (!autoSubmittedRef.current) { autoSubmittedRef.current = true; doSubmit(); }
+      setTimeUp(true);
+      if (!autoSubmittedRef.current) { autoSubmittedRef.current = true; doSubmit(true); }
       return;
     }
-    timerRef.current = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    timerRef.current = setTimeout(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
     return () => clearTimeout(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, result]);
 
   const saveAnswer = async (questionId, value) => {
+    if (timeUp) return; // no changes accepted once time is up
     const next = { ...answers, [questionId]: value };
     setAnswers(next);
     setSkipped((prev) => { const s = new Set(prev); s.delete(questionId); return s; });
@@ -111,59 +101,50 @@ export default function TakeQuiz() {
     const next = cur.includes(index) ? cur.filter((i) => i !== index) : [...cur, index].sort();
     saveAnswer(question.id, { chosenIndices: next });
   };
-
-  // Reads a File into base64 and uploads it through our own server to
-  // Google Drive, returning a usable link — replaces the old direct
-  // upload to Supabase Storage.
-  const uploadFileToDrive = async (file, question) => {
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    const filename = `${quizId}-${question.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${file.name}`;
-    const res = await fetch("/api/drive-upload", {
-      method: "POST", headers: await authHeader(),
-      body: JSON.stringify({ base64Data, filename, mimeType: file.type || "application/octet-stream" }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Upload failed.");
-    return json.url;
+  // Optional written context an employee can add alongside a screenshot
+  // answer — saved with the rest of that answer, shown to the AI and to
+  // admin during review.
+  const setDescription = (question, text) => {
+    const existing = answers[question.id] || {};
+    saveAnswer(question.id, { ...existing, description: text });
   };
 
   const doUpload = async (question, files) => {
+    if (timeUp) return;
     const existing = answers[question.id] || {};
     const existingPaths = existing.paths || [];
     const existingPreviews = existing.previews || [];
-    const room = Math.max(0, 5 - existingPaths.length); // hard cap: 5 screenshots per answer
-    const list = Array.from(files || []).slice(0, room);
+    const list = Array.from(files || []); // no cap — upload as many as needed
     if (list.length === 0) return;
     setMsg(null);
     const newPreviews = list.map((f) => URL.createObjectURL(f));
     setAnswers((prev) => ({ ...prev, [question.id]: { ...existing, uploading: true, previews: [...existingPreviews, ...newPreviews] } }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const newPaths = [];
       for (const file of list) {
-        const url = await uploadFileToDrive(file, question);
-        newPaths.push(url);
+        const ext = (file.name.split(".").pop() || "png").toLowerCase();
+        const path = `${session.user.id}/${quizId}/${question.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("quiz-screenshots").upload(path, file, { upsert: false });
+        if (upErr) throw new Error(upErr.message);
+        newPaths.push(path);
       }
-      // Append to whatever was already pasted, instead of replacing it —
-      // this is what lets more than one paste build up into one answer.
-      await saveAnswer(question.id, { paths: [...existingPaths, ...newPaths], previews: [...existingPreviews, ...newPreviews] });
+      await saveAnswer(question.id, { ...existing, paths: [...existingPaths, ...newPaths], previews: [...existingPreviews, ...newPreviews] });
     } catch (e) {
       setAnswers((prev) => ({ ...prev, [question.id]: { ...existing, error: e.message || "Upload failed." } }));
     }
   };
 
   const removeShot = (question, idx) => {
+    if (timeUp) return;
     const existing = answers[question.id] || {};
     const paths = (existing.paths || []).filter((_, i) => i !== idx);
     const previews = (existing.previews || []).filter((_, i) => i !== idx);
-    saveAnswer(question.id, paths.length > 0 ? { paths, previews } : undefined);
+    saveAnswer(question.id, paths.length > 0 ? { ...existing, paths, previews } : undefined);
   };
 
   const handlePaste = (question) => (e) => {
+    if (timeUp) return;
     const items = e.clipboardData?.items || [];
     const files = [];
     for (const item of items) {
@@ -184,19 +165,20 @@ export default function TakeQuiz() {
   const unfinished = questions.filter((q) => !isAnswered(q));
 
   const goNext = () => {
+    if (timeUp) return;
     if (!isAnswered(questions[current])) setSkipped((prev) => new Set(prev).add(questions[current].id));
     if (current < questions.length - 1) setCurrent(current + 1);
     else attemptFinish();
   };
   const goPrev = () => { if (current > 0) setCurrent(current - 1); };
-  const jumpTo = (idx) => setCurrent(idx);
+  const jumpTo = (idx) => { if (!timeUp) setCurrent(idx); };
 
   const attemptFinish = () => {
     if (unfinished.length > 0) setShowSubmitPopup(true);
     else doSubmit();
   };
 
-  const doSubmit = async () => {
+  const doSubmit = async (auto = false) => {
     if (!attemptId) return;
     setMsg(null);
     setSubmitting(true);
@@ -206,23 +188,25 @@ export default function TakeQuiz() {
     const res = await fetch("/api/submit-quiz", { method: "POST", headers: await authHeader(), body: JSON.stringify({ attemptId }) });
     const json = await res.json();
     setSubmitting(false);
-    if (!res.ok) { setMsg(json.error || "Could not submit. Please try again."); return; }
+    if (!res.ok) {
+      // If time ran out and the attempt was already submitted by an
+      // earlier auto-submit, don't show a scary error — just move on.
+      if (auto) { setResult({ score: 0, passed: false, needsReview: false, timeExpired: true }); return; }
+      setMsg(json.error || "Could not submit. Please try again.");
+      return;
+    }
     setResult(json);
   };
 
   if (loading || initializing || !quiz) return <div className="center-screen"><div className="mini">Loading…</div></div>;
 
   if (result) {
-    const showCertificate = result.passed && !result.needsReview;
     return (
       <div className="shell">
         <Sidebar role="employee" me={me} />
         <main className="content">
           <h1 className="page">{quiz.title}</h1>
           <div className="card pad" style={{ textAlign: "center" }}>
-            {result.alreadyTaken && (
-              <div className="mini" style={{ marginBottom: 12, color: "#946200" }}>You've already completed this assessment — retakes aren't allowed.</div>
-            )}
             {result.needsReview ? (
               <>
                 <div style={{ fontSize: 40 }}>🕐</div>
@@ -241,40 +225,9 @@ export default function TakeQuiz() {
                 </div>
               </>
             )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
-              {showCertificate && <button className="btn outline" onClick={() => setShowCert(true)}>🎓 View Certificate</button>}
-              <button className="btn primary" onClick={() => router.push("/employee/courses")}>Back to courses</button>
-            </div>
+            <button className="btn primary" style={{ marginTop: 18 }} onClick={() => router.push("/employee/courses")}>Back to courses</button>
           </div>
         </main>
-
-        {showCert && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(17,22,26,.6)", display: "grid", placeItems: "center", padding: 20, zIndex: 60 }} onClick={() => setShowCert(false)}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", maxWidth: 700, width: "100%", borderRadius: 12 }}>
-              <div id="certificate-printable" style={{ position: "relative", width: "100%", lineHeight: 0 }}>
-                <img src="/certificate-template.png" alt="" style={{ width: "100%", display: "block" }} />
-                {/* Name — moved down to sit exactly on "your Name Here", fully opaque so nothing shows through */}
-                <div style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%)", width: "80%", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ display: "inline-block", background: "#ffffff", padding: "4px 24px", borderRadius: 6 }}>
-                    <div style={{ fontSize: "clamp(18px, 3.2vw, 30px)", fontWeight: 700, color: "#1a1a1a" }}>{me?.full_name}</div>
-                  </div>
-                </div>
-                {/* Date — moved down to sit exactly on "17 May 2025" next to "Date of Completion:", fully opaque */}
-                <div style={{ position: "absolute", top: "83%", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontFamily: "Georgia, serif" }}>
-                  <div style={{ display: "inline-block", background: "#ffffff", padding: "3px 12px", borderRadius: 6 }}>
-                    <div style={{ fontSize: "clamp(12px, 1.8vw, 16px)", color: "#333" }}>
-                      {result.completedAt ? new Date(result.completedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="no-print" style={{ display: "flex", gap: 10, padding: 16 }}>
-                <button className="btn outline full" onClick={() => setShowCert(false)}>Close</button>
-                <button className="btn primary full" onClick={() => window.print()}>⬇ Download as PDF</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -312,7 +265,13 @@ export default function TakeQuiz() {
         </div>
         {msg && <div className="msg err">{msg}</div>}
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {timeUp && (
+          <div className="msg err" style={{ fontWeight: 700 }}>
+            ⏰ Time's up — your answers are being submitted automatically. This page is now locked.
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, opacity: timeUp ? 0.5 : 1, pointerEvents: timeUp ? "none" : "auto" }}>
           {questions.map((qq, i) => {
             const done = isAnswered(qq);
             const wasSkipped = skipped.has(qq.id) && !done;
@@ -334,7 +293,7 @@ export default function TakeQuiz() {
           })}
         </div>
 
-        <div className="card pad" style={{ marginBottom: 14 }}>
+        <div className="card pad" style={{ marginBottom: 14, opacity: timeUp ? 0.5 : 1, pointerEvents: timeUp ? "none" : "auto" }}>
           <div style={{ fontWeight: 700, marginBottom: 10 }}>
             {q.question}
             {q.question_type === "screenshot" && <span className="pill red" style={{ marginLeft: 8 }}>📷 Screenshot</span>}
@@ -356,7 +315,7 @@ export default function TakeQuiz() {
               <div tabIndex={0} onPaste={handlePaste(q)} style={{ border: "2px dashed var(--line)", borderRadius: 10, padding: 20, textAlign: "center", cursor: "text", outline: "none" }}>
                 <div style={{ fontSize: 26 }}>📋</div>
                 <div className="mini" style={{ marginTop: 6 }}>Click here, then press <b>Ctrl+V</b> (or ⌘V on Mac) to paste your screenshot</div>
-                <div className="mini">Paste again to add more — up to 5 total.</div>
+                <div className="mini">Paste again to add more — no limit.</div>
               </div>
               {a?.previews?.length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -371,6 +330,17 @@ export default function TakeQuiz() {
               )}
               {a?.uploading && <p className="mini" style={{ marginTop: 8 }}>Uploading…</p>}
               {a?.error && <p className="mini" style={{ marginTop: 8, color: "var(--red-dark)" }}>{a.error} — try pasting again.</p>}
+
+              <label className="field" style={{ marginTop: 14 }}>
+                <span>Want to add anything in words? (optional)</span>
+                <textarea
+                  rows={3}
+                  value={a?.description || ""}
+                  onChange={(e) => setDescription(q, e.target.value)}
+                  placeholder="Explain your answer here if a screenshot alone doesn't tell the full story…"
+                />
+              </label>
+
               {answered && <p className="mini" style={{ marginTop: 8, color: "#15803d" }}>✓ Saved — this will be reviewed after you submit.</p>}
             </div>
           ) : q.multi_correct ? (
@@ -397,7 +367,7 @@ export default function TakeQuiz() {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "space-between", opacity: timeUp ? 0.5 : 1, pointerEvents: timeUp ? "none" : "auto" }}>
           <button className="btn outline" onClick={goPrev} disabled={current === 0}>← Previous</button>
           <div style={{ display: "flex", gap: 10 }}>
             {!answered && <button className="btn ghost" onClick={goNext}>Skip for now</button>}
@@ -416,7 +386,7 @@ export default function TakeQuiz() {
               </p>
               <div style={{ display: "flex", gap: 10 }}>
                 <button className="btn outline full" onClick={() => { setShowSubmitPopup(false); jumpTo(questions.indexOf(unfinished[0])); }}>Go back and answer</button>
-                <button className="btn primary full" onClick={doSubmit} disabled={submitting}>{submitting ? "Submitting…" : "Submit anyway"}</button>
+                <button className="btn primary full" onClick={() => doSubmit(false)} disabled={submitting}>{submitting ? "Submitting…" : "Submit anyway"}</button>
               </div>
             </div>
           </div>
