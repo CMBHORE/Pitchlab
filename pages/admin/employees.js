@@ -16,6 +16,7 @@ export default function Employees() {
   const [bulkCourse, setBulkCourse] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkUploadBusy, setBulkUploadBusy] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null); // null = showing team list
 
   const authHeader = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -42,7 +43,7 @@ export default function Employees() {
     setBusy(false);
     if (!res.ok) { setMsg({ type: "err", text: json.error || "Could not create employee." }); return; }
     setMsg({ type: "ok", text: `${form.full_name} can now log in with that email and password.` });
-    setForm({ full_name: "", email: "", team: "", password: "" });
+    setForm({ full_name: "", email: "", team: selectedTeam && selectedTeam !== "Unassigned" ? selectedTeam : "", password: "" });
     refresh();
   };
 
@@ -72,9 +73,9 @@ export default function Employees() {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   };
-  const toggleSelectAll = () => {
-    if (selected.size === list.length) setSelected(new Set());
-    else setSelected(new Set(list.map((e) => e.id)));
+  const toggleSelectAll = (visibleList) => {
+    if (selected.size === visibleList.length) setSelected(new Set());
+    else setSelected(new Set(visibleList.map((e) => e.id)));
   };
 
   const bulkAssign = async () => {
@@ -137,7 +138,7 @@ export default function Employees() {
     setMsg(null);
     setBulkUploadBusy(true);
     const text = await file.text();
-    const rows = parseCsv(text).slice(1); // drop header row
+    const rows = parseCsv(text).slice(1);
     const headers = await authHeader();
 
     let created = 0;
@@ -145,7 +146,7 @@ export default function Employees() {
 
     for (let i = 0; i < rows.length; i++) {
       const [full_name, email, team, password] = rows[i].map((v) => (v || "").trim());
-      if (!full_name && !email) continue; // blank row, ignore silently
+      if (!full_name && !email) continue;
       if (!full_name || !email || !password) { failures.push(`Row ${i + 2}: needs Full Name, Email, and Password.`); continue; }
       if (password.length < 6) { failures.push(`Row ${i + 2}: password for ${email} must be at least 6 characters.`); continue; }
 
@@ -165,13 +166,37 @@ export default function Employees() {
 
   if (loading) return <div className="center-screen"><div className="mini">Loading…</div></div>;
 
+  // Group employees by team name; anyone without a team lands in "Unassigned".
+  const teamMap = {};
+  list.forEach((emp) => {
+    const t = emp.team?.trim() || "Unassigned";
+    (teamMap[t] = teamMap[t] || []).push(emp);
+  });
+  const teamNames = Object.keys(teamMap).sort((a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)));
+  const visibleList = selectedTeam ? (teamMap[selectedTeam] || []) : list;
+
   return (
     <div className="shell">
       <Sidebar role="admin" me={me} />
       <main className="content">
-        <h1 className="page">Team</h1>
-        <p className="sub">Create employee logins and assign them training.</p>
+        {selectedTeam ? (
+          <div className="link-back" onClick={() => setSelectedTeam(null)}>← All Teams</div>
+        ) : null}
+        <h1 className="page">{selectedTeam ? selectedTeam : "Teams"}</h1>
+        <p className="sub">{selectedTeam ? `Everyone on ${selectedTeam} — manage their logins and course assignments.` : "Click a team to see its employees."}</p>
         {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
+
+        {!selectedTeam && (
+          <div className="grid3" style={{ marginBottom: 22 }}>
+            {teamNames.map((t) => (
+              <div key={t} className="card pad" style={{ cursor: "pointer" }} onClick={() => setSelectedTeam(t)}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{t}</div>
+                <div className="mini" style={{ marginTop: 4 }}>{teamMap[t].length} employee{teamMap[t].length === 1 ? "" : "s"}</div>
+              </div>
+            ))}
+            {teamNames.length === 0 && <div className="mini">No employees yet — add some below.</div>}
+          </div>
+        )}
 
         <div className="card pad" style={{ marginBottom: 22 }}>
           <div style={{ fontWeight: 700, marginBottom: 14 }}>Add a new employee</div>
@@ -202,68 +227,72 @@ export default function Employees() {
           </div>
         </div>
 
-        {selected.size > 0 && (
-          <div className="card pad" style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <div className="mini" style={{ fontWeight: 700 }}>{selected.size} employee{selected.size === 1 ? "" : "s"} selected</div>
-            <label className="field" style={{ marginBottom: 0, minWidth: 220 }}>
-              <span>Assign course to all selected</span>
-              <select value={bulkCourse} onChange={(e) => setBulkCourse(e.target.value)}>
-                <option value="">Choose a course…</option>
-                {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            </label>
-            <button className="btn primary" disabled={!bulkCourse || bulkBusy} onClick={bulkAssign}>
-              {bulkBusy ? "Assigning…" : `Assign to ${selected.size}`}
-            </button>
-            <button className="btn ghost" onClick={() => setSelected(new Set())}>Clear selection</button>
-          </div>
-        )}
+        {selectedTeam && (
+          <>
+            {selected.size > 0 && (
+              <div className="card pad" style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div className="mini" style={{ fontWeight: 700 }}>{selected.size} employee{selected.size === 1 ? "" : "s"} selected</div>
+                <label className="field" style={{ marginBottom: 0, minWidth: 220 }}>
+                  <span>Assign course to all selected</span>
+                  <select value={bulkCourse} onChange={(e) => setBulkCourse(e.target.value)}>
+                    <option value="">Choose a course…</option>
+                    {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                </label>
+                <button className="btn primary" disabled={!bulkCourse || bulkBusy} onClick={bulkAssign}>
+                  {bulkBusy ? "Assigning…" : `Assign to ${selected.size}`}
+                </button>
+                <button className="btn ghost" onClick={() => setSelected(new Set())}>Clear selection</button>
+              </div>
+            )}
 
-        <div className="card">
-          <table className="table">
-            <thead>
-              <tr>
-                <th style={{ width: 32 }}><input type="checkbox" checked={list.length > 0 && selected.size === list.length} onChange={toggleSelectAll} /></th>
-                <th>Name</th><th>Email</th><th>Team</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 && <tr><td colSpan={5} className="mini" style={{ padding: 20 }}>No employees yet. Add your first one above.</td></tr>}
-              {list.map((emp) => (
-                <Fragment key={emp.id}>
+            <div className="card">
+              <table className="table">
+                <thead>
                   <tr>
-                    <td><input type="checkbox" checked={selected.has(emp.id)} onChange={() => toggleSelect(emp.id)} /></td>
-                    <td><div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div className="avatar">{emp.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}</div>
-                      <b>{emp.full_name}</b></div></td>
-                    <td className="mini">{emp.email}</td>
-                    <td>{emp.team || <span className="mini">—</span>}</td>
-                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                      <button className="btn ghost" onClick={() => setAssignFor(assignFor === emp.id ? null : emp.id)}>Assign</button>
-                      <button className="btn danger" onClick={() => remove(emp)}>Remove</button>
-                    </td>
+                    <th style={{ width: 32 }}><input type="checkbox" checked={visibleList.length > 0 && selected.size === visibleList.length} onChange={() => toggleSelectAll(visibleList)} /></th>
+                    <th>Name</th><th>Email</th><th>Team</th><th></th>
                   </tr>
-                  {assignFor === emp.id && (
-                    <tr>
-                      <td colSpan={5} style={{ background: "var(--input-bg)" }}>
-                        <div className="mini" style={{ marginBottom: 8, fontWeight: 700 }}>Assign courses to {emp.full_name.split(" ")[0]}</div>
-                        {courses.length === 0 ? <span className="mini">No courses yet — create some first.</span> : (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            {courses.map((c) => (
-                              <button key={c.id} className={`chipbtn ${isAssigned(emp.id, c.id) ? "on" : ""}`} onClick={() => toggleAssign(emp.id, c.id)}>
-                                {isAssigned(emp.id, c.id) ? "✓ " : ""}{c.title}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {visibleList.length === 0 && <tr><td colSpan={5} className="mini" style={{ padding: 20 }}>No employees in this team yet.</td></tr>}
+                  {visibleList.map((emp) => (
+                    <Fragment key={emp.id}>
+                      <tr>
+                        <td><input type="checkbox" checked={selected.has(emp.id)} onChange={() => toggleSelect(emp.id)} /></td>
+                        <td><div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <div className="avatar">{emp.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}</div>
+                          <b>{emp.full_name}</b></div></td>
+                        <td className="mini">{emp.email}</td>
+                        <td>{emp.team || <span className="mini">—</span>}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button className="btn ghost" onClick={() => setAssignFor(assignFor === emp.id ? null : emp.id)}>Assign</button>
+                          <button className="btn danger" onClick={() => remove(emp)}>Remove</button>
+                        </td>
+                      </tr>
+                      {assignFor === emp.id && (
+                        <tr>
+                          <td colSpan={5} style={{ background: "var(--input-bg)" }}>
+                            <div className="mini" style={{ marginBottom: 8, fontWeight: 700 }}>Assign courses to {emp.full_name.split(" ")[0]}</div>
+                            {courses.length === 0 ? <span className="mini">No courses yet — create some first.</span> : (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {courses.map((c) => (
+                                  <button key={c.id} className={`chipbtn ${isAssigned(emp.id, c.id) ? "on" : ""}`} onClick={() => toggleAssign(emp.id, c.id)}>
+                                    {isAssigned(emp.id, c.id) ? "✓ " : ""}{c.title}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
