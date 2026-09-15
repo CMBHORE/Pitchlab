@@ -28,7 +28,12 @@ export default function Sidebar({ role, me }) {
       { label: null, links: [["/admin", "Overview"]] },
       { label: "Training", links: STAFF_LINKS.map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.map(([h, l]) => [h, l]) },
-      { label: null, links: [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"]] },
+      {
+        label: null,
+        links: me?.role === "admin"
+          ? [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"], ["/admin/admin-activity", "Admin Activity"], ["/profile", "My Profile"]]
+          : [["/admin/employees", "Team"], ["/profile", "My Profile"]],
+      },
     ];
   } else if (role === "trainer") {
     const perms = me?.permissions || {};
@@ -36,6 +41,7 @@ export default function Sidebar({ role, me }) {
       { label: null, links: [["/trainer", "Overview"]] },
       { label: "Training", links: STAFF_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
+      { label: null, links: [["/profile", "My Profile"]] },
     ];
   } else {
     groups = [
@@ -47,6 +53,7 @@ export default function Sidebar({ role, me }) {
         ["/employee/improvements", "My Improvement"],
         ["/employee/assessment-scores", "My Assessment Scores"],
         ["/employee/classroom", "Classroom"],
+        ["/profile", "My Profile"],
       ] },
     ];
   }
@@ -58,8 +65,6 @@ export default function Sidebar({ role, me }) {
     router.replace("/login");
   };
 
-  // Lets someone jump straight to the log-out button at the bottom
-  // without manually scrolling past a long list of nav links.
   const scrollToLogout = () => {
     document.getElementById("sidebar-logout-btn")?.scrollIntoView({ behavior: "smooth", block: "end" });
   };
@@ -115,7 +120,7 @@ export default function Sidebar({ role, me }) {
           </div>
           <div className="stack" style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{me?.full_name}</div>
-            <div className="mini" style={{ textTransform: "capitalize" }}>{role}</div>
+            <div className="mini" style={{ textTransform: "capitalize" }}>{role === "admin" && me?.role === "trainer" ? "Scoped Admin" : role}</div>
           </div>
         </div>
       </div>
