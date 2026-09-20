@@ -89,27 +89,28 @@ export default function Sidebar({ role, me }) {
 
   return (
     <aside className="sidebar" style={{ position: "relative" }}>
-      <div className="row-between" style={{ padding: "0 5px", marginBottom: 6 }}>
+      <div style={{ padding: "0 5px", marginBottom: 6 }}>
         <img src="/petpooja.png" alt="Petpooja" className="brand-logo" />
-
-        {/* Theme · Fullscreen · Notifications · Profile · Settings — five
-            icons grouped together, matching the reference's topbar strip.
-            Placed here since PitchLab uses a sidebar-only layout. */}
-        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-          <ThemeToggle />
-          <button title="Fullscreen" onClick={toggleFullscreen} style={iconBtnStyle()}>⛶</button>
-          <button title="Notifications" style={iconBtnStyle()}>🔔</button>
-          <button
-            title="My Profile"
-            onClick={() => router.push("/profile")}
-            style={{ ...iconBtnStyle(), background: "linear-gradient(135deg, var(--brand), var(--brand-600))", color: "#fff", border: "none", fontWeight: 700, fontSize: 11 }}
-          >
-            {initials}
-          </button>
-          <button title="Settings" onClick={() => router.push("/profile")} style={iconBtnStyle()}>⚙️</button>
-        </div>
       </div>
       <div className="brand-sub" style={{ padding: "0 5px" }}><b>PitchLab</b> · Sales Training</div>
+
+      {/* Theme · Fullscreen · Notifications · Profile · Settings — pinned
+          to the actual top-right corner of the whole page (not the
+          sidebar column), matching the reference's topbar strip. Rendered
+          from here so it appears automatically on every logged-in page. */}
+      <div style={{ position: "fixed", top: 16, right: 24, zIndex: 40, display: "flex", gap: 6, alignItems: "center" }}>
+        <ThemeToggle />
+        <button title="Fullscreen" onClick={toggleFullscreen} style={iconBtnStyle()}>⛶</button>
+        <button title="Notifications" style={iconBtnStyle()}>🔔</button>
+        <button
+          title="My Profile"
+          onClick={() => router.push("/profile")}
+          style={{ ...iconBtnStyle(), background: "linear-gradient(135deg, var(--brand), var(--brand-600))", color: "#fff", border: "none", fontWeight: 700, fontSize: 11 }}
+        >
+          {initials}
+        </button>
+        <button title="Settings" onClick={() => router.push("/profile")} style={iconBtnStyle()}>⚙️</button>
+      </div>
 
       <nav className="nav">
         {groups.map((g, gi) => {
