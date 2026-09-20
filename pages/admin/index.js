@@ -168,29 +168,33 @@ export default function AdminHome() {
         </div>
 
         <div className="grid4">
-          <div className="stat">
-            <div className="stat-row">
-              <div className="stat-icon">👥</div>
-              <div><div className="stat-value">{stats?.employees ?? "…"}</div><div className="stat-label">{isScoped ? "Employees (your teams)" : "Employees"}</div></div>
+          <div className="card kpi-card grad">
+            <div className="kpi-top">
+              <div className="kpi-icon-circle">👥</div>
             </div>
+            <div className="kpi-value">{stats?.employees ?? "…"}</div>
+            <div className="kpi-label">{isScoped ? "Employees (your teams)" : "Total Employees"}</div>
           </div>
-          <div className="stat">
-            <div className="stat-row">
-              <div className="stat-icon blue">📚</div>
-              <div><div className="stat-value">{stats?.courses ?? "…"}</div><div className="stat-label">Courses</div></div>
+          <div className="card kpi-card plain">
+            <div className="kpi-top">
+              <div className="kpi-icon-circle violet">📚</div>
             </div>
+            <div className="kpi-value">{stats?.courses ?? "…"}</div>
+            <div className="kpi-label">Active Courses</div>
           </div>
-          <div className="stat">
-            <div className="stat-row">
-              <div className="stat-icon orange">🎯</div>
-              <div><div className="stat-value">{stats?.avg ?? "…"}%</div><div className="stat-label">Avg completion</div></div>
+          <div className="card kpi-card plain">
+            <div className="kpi-top">
+              <div className="kpi-icon-circle blue">🎯</div>
             </div>
+            <div className="kpi-value">{stats?.avg ?? "…"}%</div>
+            <div className="kpi-label">Avg. Completion Rate</div>
           </div>
-          <div className="stat">
-            <div className="stat-row">
-              <div className="stat-icon green">🎤</div>
-              <div><div className="stat-value">{stats?.calls ?? "…"}</div><div className="stat-label">Roleplay calls scored</div></div>
+          <div className="card kpi-card plain">
+            <div className="kpi-top">
+              <div className="kpi-icon-circle" style={{ background: "var(--amber-soft)", color: "#b3740c" }}>🎤</div>
             </div>
+            <div className="kpi-value">{stats?.calls ?? "…"}</div>
+            <div className="kpi-label">Roleplay Calls Scored</div>
           </div>
         </div>
 
@@ -205,11 +209,11 @@ export default function AdminHome() {
                 <tr key={t.team}>
                   <td><b>{t.team}</b></td>
                   <td className="mini">{t.employees}</td>
-                  <td><span className={`pill ${t.avgScore >= 70 ? "" : "gray"}`} style={t.avgScore >= 70 ? { background: "#e4f9ef", color: "#1fb87a" } : {}}>{t.avgScore}</span></td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div className="progress" style={{ width: 100 }}><i style={{ width: `${t.avgCompletion}%` }} /></div>
-                      <span className="mini">{t.avgCompletion}%</span>
+                  <td><span className={`badge ${t.avgScore >= 70 ? "badge-success" : t.avgScore >= 50 ? "badge-warning" : "badge-danger"}`}>{t.avgScore}</span></td>
+                  <td style={{ width: 140 }}>
+                    <div className="mini-bar-row">
+                      <div className="mini-bar"><span style={{ width: `${t.avgCompletion}%`, background: t.avgCompletion >= 70 ? "var(--ok)" : "var(--info)" }} /></div>
+                      <span className="text-sm">{t.avgCompletion}%</span>
                     </div>
                   </td>
                   <td className="mini">{t.calls}</td>
@@ -239,13 +243,13 @@ export default function AdminHome() {
               {sortedEmployeePerf.length === 0 && <tr><td colSpan={5} className="mini" style={{ padding: 20 }}>No employees match.</td></tr>}
               {sortedEmployeePerf.slice(0, 25).map((e) => (
                 <tr key={e.id}>
-                  <td><b>{e.name}</b></td>
-                  <td className="mini">{e.team}</td>
-                  <td>{e.calls > 0 ? <span className={`pill ${e.avgScore >= 70 ? "" : "gray"}`} style={e.avgScore >= 70 ? { background: "#e4f9ef", color: "#1fb87a" } : {}}>{e.avgScore}</span> : <span className="mini">—</span>}</td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div className="progress" style={{ width: 90 }}><i style={{ width: `${e.completion}%` }} /></div>
-                      <span className="mini">{e.completion}%</span>
+                  <td><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>{e.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}</div><b>{e.name}</b></div></td>
+                  <td><span className="badge badge-brand">{e.team}</span></td>
+                  <td>{e.calls > 0 ? <span className={`badge ${e.avgScore >= 70 ? "badge-success" : e.avgScore >= 50 ? "badge-warning" : "badge-danger"}`}>{e.avgScore}</span> : <span className="mini">—</span>}</td>
+                  <td style={{ width: 130 }}>
+                    <div className="mini-bar-row">
+                      <div className="mini-bar"><span style={{ width: `${e.completion}%`, background: e.completion >= 70 ? "var(--ok)" : "var(--info)" }} /></div>
+                      <span className="text-sm">{e.completion}%</span>
                     </div>
                   </td>
                   <td className="mini">{e.calls}</td>
