@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import ThemeToggle from "./ThemeToggle";
@@ -27,9 +28,21 @@ function iconBtnStyle() {
   };
 }
 
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+
 export default function Sidebar({ role, me }) {
   const router = useRouter();
   const path = router.pathname;
+
+  // Which grouped section is currently expanded — clicking a group's
+  // header (a "tab") reveals its links, like a folder opening.
+  // The group containing the page you're currently on starts open.
+  const initialOpenGroup = REPORT_LINKS.some(([h]) => path.startsWith(h)) ? "Reports"
+    : STAFF_LINKS.some(([h]) => path.startsWith(h)) ? "Training" : null;
+  const [openGroup, setOpenGroup] = useState(initialOpenGroup);
 
   let groups;
   if (role === "admin") {
@@ -72,10 +85,6 @@ export default function Sidebar({ role, me }) {
     router.replace("/login");
   };
 
-  const scrollToLogout = () => {
-    document.getElementById("sidebar-logout-btn")?.scrollIntoView({ behavior: "smooth", block: "end" });
-  };
-
   const initials = (me?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
@@ -83,75 +92,61 @@ export default function Sidebar({ role, me }) {
       <div className="row-between" style={{ padding: "0 5px", marginBottom: 6 }}>
         <img src="/petpooja.png" alt="Petpooja" className="brand-logo" />
 
-        {/* Theme toggle · Settings · Profile — grouped together like the
-            reference's topbar icon strip, placed here since PitchLab uses
-            a sidebar-only layout with no separate topbar. */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {/* Theme · Fullscreen · Notifications · Profile · Settings — five
+            icons grouped together, matching the reference's topbar strip.
+            Placed here since PitchLab uses a sidebar-only layout. */}
+        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
           <ThemeToggle />
-          <button
-            title="Settings"
-            onClick={() => router.push("/profile")}
-            style={iconBtnStyle()}
-          >
-            ⚙️
-          </button>
+          <button title="Fullscreen" onClick={toggleFullscreen} style={iconBtnStyle()}>⛶</button>
+          <button title="Notifications" style={iconBtnStyle()}>🔔</button>
           <button
             title="My Profile"
             onClick={() => router.push("/profile")}
-            style={{ ...iconBtnStyle(), background: "linear-gradient(135deg, var(--brand), var(--brand-600))", color: "#fff", border: "none", fontWeight: 700 }}
+            style={{ ...iconBtnStyle(), background: "linear-gradient(135deg, var(--brand), var(--brand-600))", color: "#fff", border: "none", fontWeight: 700, fontSize: 11 }}
           >
             {initials}
           </button>
+          <button title="Settings" onClick={() => router.push("/profile")} style={iconBtnStyle()}>⚙️</button>
         </div>
       </div>
       <div className="brand-sub" style={{ padding: "0 5px" }}><b>PitchLab</b> · Sales Training</div>
 
-      <button
-        onClick={scrollToLogout}
-        title="Jump to Log out"
-        style={{
-          position: "absolute", top: 10, right: 10, zIndex: 5,
-          width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--line)",
-          background: "var(--card)", cursor: "pointer", fontSize: 14, lineHeight: 1,
-        }}
-      >
-        ↓
-      </button>
-
       <nav className="nav">
-        {groups.map((g, gi) => (
-          <div key={gi}>
-            {g.label && (
-              <div className="mini" style={{ textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700, padding: "12px 8px 4px", opacity: 0.65 }}>
-                {g.label}
-              </div>
-            )}
-            {g.links.map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className={isActive(href) ? "active" : ""}
-                onClick={(e) => { e.preventDefault(); router.push(href); }}
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        ))}
+        {groups.map((g, gi) => {
+          const isExpandable = !!g.label;
+          const isOpen = !isExpandable || openGroup === g.label;
+          return (
+            <div key={gi}>
+              {g.label && (
+                <div
+                  onClick={() => setOpenGroup(isOpen ? null : g.label)}
+                  className="mini"
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer",
+                    textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700, padding: "12px 8px 4px", opacity: 0.75,
+                  }}
+                >
+                  <span>{g.label}</span>
+                  <span style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s", fontSize: 11 }}>▸</span>
+                </div>
+              )}
+              {isOpen && g.links.map(([href, label]) => (
+                <a
+                  key={href}
+                  href={href}
+                  className={isActive(href) ? "active" : ""}
+                  onClick={(e) => { e.preventDefault(); router.push(href); }}
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="spacer" />
-
-      <div className="row-between" style={{ padding: "8px 6px", cursor: "pointer" }} onClick={() => router.push("/profile")}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-          <div className="avatar">{initials}</div>
-          <div className="stack" style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{me?.full_name}</div>
-            <div className="mini" style={{ textTransform: "capitalize" }}>{role === "admin" && me?.role === "trainer" ? "Scoped Admin" : role}</div>
-          </div>
-        </div>
-      </div>
-      <button id="sidebar-logout-btn" className="btn ghost full" onClick={logout} style={{ marginTop: 6 }}>Log out</button>
+      <button id="sidebar-logout-btn" className="btn ghost full" onClick={logout}>Log out</button>
     </aside>
   );
 }
