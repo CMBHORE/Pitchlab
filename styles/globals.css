@@ -426,3 +426,50 @@ p.sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
 }
 .session-title { font-size: 13.5px; font-weight: 700; }
 .session-when  { font-size: 12.5px; color: var(--muted); }
+
+/* ============================================================
+   "Same to same" reference components — gradient KPI cards,
+   status badges, inline mini progress bars, row actions
+   ============================================================ */
+.kpi-card { padding: 22px; position: relative; overflow: hidden; }
+.kpi-card.grad {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  color: #fff; border: none;
+}
+.kpi-card.plain { background: var(--card); }
+.kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+.kpi-icon-circle {
+  width: 46px; height: 46px; border-radius: var(--r-ctl); flex: none;
+  display: grid; place-items: center; font-size: 19px;
+  background: rgba(255,255,255,.2); color: #fff;
+}
+.kpi-card.plain .kpi-icon-circle { background: var(--brand-soft); color: var(--brand); }
+.kpi-icon-circle.violet { background: var(--brand-soft); color: var(--brand); }
+.kpi-icon-circle.blue   { background: var(--info-soft);  color: var(--info); }
+.kpi-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.2); color: #fff;
+}
+.kpi-card.plain .kpi-pill { background: var(--ok-soft); color: var(--ok); }
+.kpi-card.plain .kpi-pill.down { background: var(--danger-soft); color: var(--danger); }
+.kpi-value { font-size: 30px; font-weight: 800; letter-spacing: -.02em; font-family: 'Plus Jakarta Sans', sans-serif; line-height: 1.1; }
+.kpi-label { font-size: 13px; margin-top: 4px; opacity: .85; }
+.kpi-card.plain .kpi-label { color: var(--muted); opacity: 1; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: var(--r-pill); }
+.badge-success { background: var(--ok-soft); color: var(--ok); }
+.badge-info    { background: var(--info-soft); color: var(--info); }
+.badge-warning { background: var(--amber-soft); color: #b3740c; }
+.badge-danger  { background: var(--coral-soft); color: var(--danger); }
+.badge-brand   { background: var(--brand-soft); color: var(--brand-700); }
+
+.mini-bar-row { display: flex; align-items: center; gap: 8px; }
+.mini-bar { flex: 1; height: 6px; border-radius: var(--r-pill); background: var(--card-2); overflow: hidden; min-width: 60px; }
+.mini-bar span { display: block; height: 100%; border-radius: var(--r-pill); }
+.text-sm { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+.row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.row-actions button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; display: grid; place-items: center; font-size: 12px; }
+.row-actions button:hover { background: var(--card-2); color: var(--text); }
+.row-actions button.danger:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-soft); }
