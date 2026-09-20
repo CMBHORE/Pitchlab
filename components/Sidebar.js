@@ -16,7 +16,16 @@ const REPORT_LINKS = [
   ["/admin/roleplay-coverage-report", "Roleplay Coverage", "reports"],
   ["/admin/quiz-review", "Assessment Review", "reports"],
   ["/admin/voice-logs", "Voice Call Logs", "reports"],
+  ["/admin/screenshot-review", "Screenshot Submissions", "reports"],
 ];
+
+function iconBtnStyle() {
+  return {
+    width: 32, height: 32, borderRadius: "50%",
+    border: "1px solid var(--line)", background: "var(--card)",
+    display: "grid", placeItems: "center", cursor: "pointer", fontSize: 14,
+  };
+}
 
 export default function Sidebar({ role, me }) {
   const router = useRouter();
@@ -31,8 +40,8 @@ export default function Sidebar({ role, me }) {
       {
         label: null,
         links: me?.role === "admin"
-          ? [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"], ["/admin/admin-activity", "Admin Activity"], ["/profile", "My Profile"]]
-          : [["/admin/employees", "Team"], ["/profile", "My Profile"]],
+          ? [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"], ["/admin/admin-activity", "Admin Activity"]]
+          : [["/admin/employees", "Team"]],
       },
     ];
   } else if (role === "trainer") {
@@ -41,7 +50,6 @@ export default function Sidebar({ role, me }) {
       { label: null, links: [["/trainer", "Overview"]] },
       { label: "Training", links: STAFF_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
-      { label: null, links: [["/profile", "My Profile"]] },
     ];
   } else {
     groups = [
@@ -53,7 +61,6 @@ export default function Sidebar({ role, me }) {
         ["/employee/improvements", "My Improvement"],
         ["/employee/assessment-scores", "My Assessment Scores"],
         ["/employee/classroom", "Classroom"],
-        ["/profile", "My Profile"],
       ] },
     ];
   }
@@ -69,11 +76,33 @@ export default function Sidebar({ role, me }) {
     document.getElementById("sidebar-logout-btn")?.scrollIntoView({ behavior: "smooth", block: "end" });
   };
 
+  const initials = (me?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+
   return (
     <aside className="sidebar" style={{ position: "relative" }}>
-      <div className="row-between" style={{ padding: "0 5px" }}>
+      <div className="row-between" style={{ padding: "0 5px", marginBottom: 6 }}>
         <img src="/petpooja.png" alt="Petpooja" className="brand-logo" />
-        <ThemeToggle />
+
+        {/* Theme toggle · Settings · Profile — grouped together like the
+            reference's topbar icon strip, placed here since PitchLab uses
+            a sidebar-only layout with no separate topbar. */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <ThemeToggle />
+          <button
+            title="Settings"
+            onClick={() => router.push("/profile")}
+            style={iconBtnStyle()}
+          >
+            ⚙️
+          </button>
+          <button
+            title="My Profile"
+            onClick={() => router.push("/profile")}
+            style={{ ...iconBtnStyle(), background: "linear-gradient(135deg, var(--brand), var(--brand-600))", color: "#fff", border: "none", fontWeight: 700 }}
+          >
+            {initials}
+          </button>
+        </div>
       </div>
       <div className="brand-sub" style={{ padding: "0 5px" }}><b>PitchLab</b> · Sales Training</div>
 
@@ -113,11 +142,9 @@ export default function Sidebar({ role, me }) {
 
       <div className="spacer" />
 
-      <div className="row-between" style={{ padding: "8px 6px" }}>
+      <div className="row-between" style={{ padding: "8px 6px", cursor: "pointer" }} onClick={() => router.push("/profile")}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-          <div className="avatar">
-            {(me?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
+          <div className="avatar">{initials}</div>
           <div className="stack" style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{me?.full_name}</div>
             <div className="mini" style={{ textTransform: "capitalize" }}>{role === "admin" && me?.role === "trainer" ? "Scoped Admin" : role}</div>
