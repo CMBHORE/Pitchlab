@@ -139,7 +139,7 @@ export default async function handler(req, res) {
     screenshotQuestions.map((q) => {
       const a = answers[q.id];
       return gradeOneScreenshotQuestion(q, a?.paths || [], a?.description)
-        .then((verdict) => ({ questionId: q.id, question: q.question, paths: a?.paths || [], correct: verdict.correct, feedback: verdict.feedback, adminOverride: null }));
+        .then((verdict) => ({ questionId: q.id, question: q.question, paths: a?.paths || [], description: a?.description || "", correct: verdict.correct, feedback: verdict.feedback, adminOverride: null }));
     })
   );
   const aiReview = gradingResults;
