@@ -17,6 +17,8 @@ export default function Employees() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkUploadBusy, setBulkUploadBusy] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null); // null = showing team list
+  const [search, setSearch] = useState("");
+  const [teamSort, setTeamSort] = useState("name"); // "name" | "size"
 
   const authHeader = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -172,8 +174,19 @@ export default function Employees() {
     const t = emp.team?.trim() || "Unassigned";
     (teamMap[t] = teamMap[t] || []).push(emp);
   });
-  const teamNames = Object.keys(teamMap).sort((a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)));
-  const visibleList = selectedTeam ? (teamMap[selectedTeam] || []) : list;
+  let teamNames = Object.keys(teamMap).sort((a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)));
+  if (teamSort === "size") {
+    teamNames = [...teamNames].sort((a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : teamMap[b].length - teamMap[a].length));
+  }
+  const unassignedCount = teamMap["Unassigned"]?.length || 0;
+
+  const searchLower = search.trim().toLowerCase();
+  const matchesSearch = (emp) => !searchLower || emp.full_name.toLowerCase().includes(searchLower) || emp.email.toLowerCase().includes(searchLower);
+  const baseVisible = selectedTeam ? (teamMap[selectedTeam] || []) : list;
+  const visibleList = baseVisible.filter(matchesSearch);
+  // When searching from the "All Teams" screen, also surface which teams
+  // actually contain a match, so a name search can jump straight there.
+  const matchingTeams = search.trim() ? teamNames.filter((t) => teamMap[t].some(matchesSearch)) : teamNames;
 
   return (
     <div className="shell">
@@ -187,15 +200,38 @@ export default function Employees() {
         {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
 
         {!selectedTeam && (
-          <div className="grid3" style={{ marginBottom: 22 }}>
-            {teamNames.map((t) => (
-              <div key={t} className="card pad" style={{ cursor: "pointer" }} onClick={() => setSelectedTeam(t)}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{t}</div>
-                <div className="mini" style={{ marginTop: 4 }}>{teamMap[t].length} employee{teamMap[t].length === 1 ? "" : "s"}</div>
+          <>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+              <label className="field" style={{ marginBottom: 0, minWidth: 260, flex: 1 }}>
+                <span>🔍 Search employee (name or email)</span>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Type to search across all teams…" />
+              </label>
+              <label className="field" style={{ marginBottom: 0, minWidth: 180 }}>
+                <span>Sort teams by</span>
+                <select value={teamSort} onChange={(e) => setTeamSort(e.target.value)}>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="size">Size (largest first)</option>
+                </select>
+              </label>
+            </div>
+
+            {unassignedCount > 0 && (
+              <div className="msg err" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>⚠ {unassignedCount} employee{unassignedCount === 1 ? " has" : "s have"} no team assigned yet.</span>
+                <button className="btn ghost sm" onClick={() => setSelectedTeam("Unassigned")}>View them</button>
               </div>
-            ))}
-            {teamNames.length === 0 && <div className="mini">No employees yet — add some below.</div>}
-          </div>
+            )}
+
+            <div className="grid3" style={{ marginBottom: 22 }}>
+              {matchingTeams.map((t) => (
+                <div key={t} className="card pad" style={{ cursor: "pointer" }} onClick={() => setSelectedTeam(t)}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{t}</div>
+                  <div className="mini" style={{ marginTop: 4 }}>{teamMap[t].length} employee{teamMap[t].length === 1 ? "" : "s"}</div>
+                </div>
+              ))}
+              {matchingTeams.length === 0 && <div className="mini">{search ? "No employees match that search." : "No employees yet — add some below."}</div>}
+            </div>
+          </>
         )}
 
         <div className="card pad" style={{ marginBottom: 22 }}>
@@ -229,6 +265,11 @@ export default function Employees() {
 
         {selectedTeam && (
           <>
+            <label className="field" style={{ maxWidth: 320 }}>
+              <span>🔍 Search within {selectedTeam}</span>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or email…" />
+            </label>
+
             {selected.size > 0 && (
               <div className="card pad" style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div className="mini" style={{ fontWeight: 700 }}>{selected.size} employee{selected.size === 1 ? "" : "s"} selected</div>
