@@ -13,8 +13,8 @@ async function requireUser(req) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
 
-  if (!process.env.B2_ENDPOINT || !process.env.B2_KEY_ID || !process.env.B2_APPLICATION_KEY || !process.env.B2_BUCKET_NAME || !process.env.B2_PUBLIC_URL) {
-    const missing = ["B2_ENDPOINT", "B2_KEY_ID", "B2_APPLICATION_KEY", "B2_BUCKET_NAME", "B2_PUBLIC_URL"].filter((k) => !process.env[k]);
+  if (!process.env.B2_ENDPOINT || !process.env.B2_KEY_ID || !process.env.B2_APPLICATION_KEY || !process.env.B2_BUCKET_NAME) {
+    const missing = ["B2_ENDPOINT", "B2_KEY_ID", "B2_APPLICATION_KEY", "B2_BUCKET_NAME"].filter((k) => !process.env[k]);
     return res.status(500).json({ error: "Backblaze B2 isn't configured — missing: " + missing.join(", ") });
   }
 
@@ -25,8 +25,8 @@ export default async function handler(req, res) {
   if (!base64Data || !filename) return res.status(400).json({ error: "Missing file data." });
 
   try {
-    const { url } = await uploadToB2(base64Data, filename, mimeType);
-    return res.status(200).json({ url });
+    const { url, key } = await uploadToB2(base64Data, filename, mimeType);
+    return res.status(200).json({ url, key });
   } catch (e) {
     return res.status(500).json({ error: "Upload failed: " + (e.message || e) });
   }
