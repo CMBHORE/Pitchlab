@@ -113,7 +113,7 @@ export default function TakeQuiz() {
   // Google Drive, returning a usable link — this is the same system
   // your reference images and question media already use, so this
   // answer never touches Supabase Storage (and its quota) at all.
-  const uploadFileToDrive = async (file, question) => {
+  const uploadFileToB2 = async (file, question) => {
     const base64Data = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -121,7 +121,7 @@ export default function TakeQuiz() {
       reader.readAsDataURL(file);
     });
     const filename = `${quizId}-${question.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${file.name}`;
-    const res = await fetch("/api/drive-upload", {
+    const res = await fetch("/api/b2-upload", {
       method: "POST", headers: await authHeader(),
       body: JSON.stringify({ base64Data, filename, mimeType: file.type || "application/octet-stream" }),
     });
@@ -143,7 +143,7 @@ export default function TakeQuiz() {
     try {
       const newPaths = [];
       for (const file of list) {
-        const url = await uploadFileToDrive(file, question);
+        const url = await uploadFileToB2(file, question);
         newPaths.push(url);
       }
       await saveAnswer(question.id, { ...existing, paths: [...existingPaths, ...newPaths], previews: [...existingPreviews, ...newPreviews] });
@@ -202,8 +202,25 @@ export default function TakeQuiz() {
     setShowSubmitPopup(false);
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    const res = await fetch("/api/submit-quiz", { method: "POST", headers: await authHeader(), body: JSON.stringify({ attemptId }) });
-    const json = await res.json();
+    // A slow AI grading pass can occasionally exceed the server's own time
+    // limit. Rather than let the button spin forever with no explanation,
+    // give up after 25s client-side and offer a clear retry — the
+    // employee's answers are already safely saved either way, so
+    // resubmitting is always safe.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    let res, json;
+    try {
+      res = await fetch("/api/submit-quiz", { method: "POST", headers: await authHeader(), body: JSON.stringify({ attemptId }), signal: controller.signal });
+      json = await res.json();
+    } catch (e) {
+      clearTimeout(timeoutId);
+      setSubmitting(false);
+      if (auto) { setResult({ score: 0, passed: false, needsReview: false, timeExpired: true }); return; }
+      setMsg("This is taking longer than expected. Your answers are safely saved — please try submitting again.");
+      return;
+    }
+    clearTimeout(timeoutId);
     setSubmitting(false);
     if (!res.ok) {
       // If time ran out and the attempt was already submitted by an
