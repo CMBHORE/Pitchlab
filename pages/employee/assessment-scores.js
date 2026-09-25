@@ -27,9 +27,6 @@ export default function MyAssessmentScores() {
     })();
   }, [loading, me]);
 
-  // Only reachable for a completed attempt — shows exactly what the
-  // employee answered, and for anything marked wrong, what the correct
-  // answer actually was.
   const openDetails = async (attempt) => {
     setOpen(attempt);
     setReviewIndex(0);
@@ -44,7 +41,7 @@ export default function MyAssessmentScores() {
         const r = aiReviewByQ[q.id];
         const finalCorrect = r?.adminOverride !== null && r?.adminOverride !== undefined ? r.adminOverride : (r?.correct ?? false);
         items.push({
-          type: "screenshot", question: q.question, paths: r?.paths || [],
+          type: "screenshot", question: q.question, paths: r?.paths || [], description: r?.description || "",
           correct: finalCorrect, feedback: r?.feedback, referenceImages: q.reference_images || [],
         });
       } else {
@@ -75,8 +72,13 @@ export default function MyAssessmentScores() {
     <div className="shell">
       <Sidebar role="employee" me={me} />
       <main className="content">
-        <h1 className="page">My Assessment Scores</h1>
-        <p className="sub">Every assessment you've submitted, and its final result.</p>
+        <div className="page-hero theme-amber">
+          <div className="page-hero-text">
+            <h1>My Assessment Scores</h1>
+            <p>Every assessment you've submitted, and its final result.</p>
+          </div>
+          <div className="page-hero-glyph">🏆</div>
+        </div>
 
         <div className="card">
           <table className="table">
@@ -159,6 +161,12 @@ export default function MyAssessmentScores() {
                               <img key={pi} src={url} alt={`Your submission ${pi + 1}`} style={{ maxWidth: 320, borderRadius: 10, border: "1px solid var(--line)" }} />
                             ))}
                           </div>
+                          {current.description && (
+                            <div className="tile" style={{ marginBottom: 14, background: "var(--brand-soft)" }}>
+                              <div className="mini" style={{ fontWeight: 700, marginBottom: 4 }}>✏️ What you wrote:</div>
+                              <div style={{ fontSize: 14 }}>{current.description}</div>
+                            </div>
+                          )}
                           {!current.correct && current.referenceImages?.length > 0 && (
                             <>
                               <div className="mini" style={{ marginBottom: 6, fontWeight: 700, color: "var(--red-dark)" }}>What a correct answer should show:</div>
@@ -176,7 +184,6 @@ export default function MyAssessmentScores() {
                           {current.options.map((opt, oi) => {
                             const isCorrectOption = current.correctIndices.includes(oi);
                             const wasChosen = current.multiCorrect ? current.chosenIndices.includes(oi) : current.chosenIndex === oi;
-                            // Only reveal which option was correct if the employee actually got it wrong.
                             const showAsCorrect = !current.correct && isCorrectOption;
                             return (
                               <div key={oi} style={{
