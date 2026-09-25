@@ -43,8 +43,13 @@ export default function MyProfile() {
     <div className="shell">
       <Sidebar role={sidebarRole} me={me} />
       <main className="content">
-        <h1 className="page">My Profile</h1>
-        <p className="sub">Your account details and login.</p>
+        <div className="page-hero theme-violet">
+          <div className="page-hero-text">
+            <h1>My Profile</h1>
+            <p>Your account details and login.</p>
+          </div>
+          <div className="page-hero-glyph">⚙️</div>
+        </div>
 
         <div className="card pad" style={{ marginBottom: 22, maxWidth: 480 }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 8 }}>
