@@ -134,10 +134,13 @@ export default function AdminHome() {
     <div className="shell">
       <Sidebar role="admin" me={me} />
       <main className="content">
-        <h1 className="page">Welcome, {me.full_name.split(" ")[0]}</h1>
-        <p className="sub">
-          Petpooja PitchLab — {isScoped ? `showing ${(me.assigned_teams || []).join(", ") || "no teams assigned"}` : "company-wide admin console"}.
-        </p>
+        <div className="page-hero theme-violet">
+          <div className="page-hero-text">
+            <h1>Welcome, {me.full_name.split(" ")[0]}</h1>
+            <p>Petpooja PitchLab — {isScoped ? `showing ${(me.assigned_teams || []).join(", ") || "no teams assigned"}` : "company-wide admin console"}.</p>
+          </div>
+          <div className="page-hero-glyph">📈</div>
+        </div>
 
         <div className="grid4">
           <div className="card kpi-card grad">

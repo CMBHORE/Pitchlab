@@ -58,8 +58,13 @@ export default function AdminActivity() {
     <div className="shell">
       <Sidebar role="admin" me={me} />
       <main className="content">
-        <h1 className="page">Admin & Employee Activity</h1>
-        <p className="sub">A Super Admin's view of who's doing what across the whole platform.</p>
+        <div className="page-hero theme-blue">
+          <div className="page-hero-text">
+            <h1>Admin & Employee Activity</h1>
+            <p>A Super Admin's view of who's doing what across the whole platform.</p>
+          </div>
+          <div className="page-hero-glyph">📊</div>
+        </div>
 
         <div className="grid4" style={{ marginBottom: 22 }}>
           <div className="tile"><div className="kpi">{employees.length}</div><div className="kpi-label">Total employees</div></div>

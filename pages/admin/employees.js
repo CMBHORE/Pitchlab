@@ -195,8 +195,13 @@ export default function Employees() {
         {selectedTeam ? (
           <div className="link-back" onClick={() => setSelectedTeam(null)}>← All Teams</div>
         ) : null}
-        <h1 className="page">{selectedTeam ? selectedTeam : "Teams"}</h1>
-        <p className="sub">{selectedTeam ? `Everyone on ${selectedTeam} — manage their logins and course assignments.` : "Click a team to see its employees."}</p>
+        <div className="page-hero theme-coral">
+          <div className="page-hero-text">
+            <h1>{selectedTeam ? selectedTeam : "Teams"}</h1>
+            <p>{selectedTeam ? `Everyone on ${selectedTeam} — manage their logins and course assignments.` : "Click a team to see its employees."}</p>
+          </div>
+          <div className="page-hero-glyph">🧑‍🤝‍🧑</div>
+        </div>
         {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
 
         {!selectedTeam && (
