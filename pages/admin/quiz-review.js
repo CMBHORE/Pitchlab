@@ -151,8 +151,13 @@ export default function QuizReview() {
     <div className="shell">
       <Sidebar role="admin" me={me} />
       <main className="content">
-        <h1 className="page">Assessment review</h1>
-        <p className="sub">Review any submission — screenshot answers the AI graded, or multiple-choice answers you want to double-check — and correct anything before finalizing a score.</p>
+        <div className="page-hero theme-amber">
+          <div className="page-hero-text">
+            <h1>Assessment Review</h1>
+            <p>Review any submission and correct anything before finalizing a score.</p>
+          </div>
+          <div className="page-hero-glyph">📋</div>
+        </div>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 14 }}>
           <button className={`chipbtn ${tab === "pending" ? "on" : ""}`} onClick={() => setTab("pending")}>Pending review{pendingCount > 0 ? ` (${pendingCount})` : ""}</button>
