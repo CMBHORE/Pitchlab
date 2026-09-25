@@ -498,27 +498,30 @@ p.sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
   position: relative; overflow: hidden; border-radius: var(--r-card);
   padding: 28px 32px; margin-bottom: 22px; color: #fff;
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
-}
-.page-hero::before, .page-hero::after {
-  content: ""; position: absolute; border-radius: 50%; filter: blur(10px); pointer-events: none;
+  background-image: url('/hero-texture.png');
+  background-size: cover; background-position: center;
+  background-blend-mode: overlay;
 }
 .page-hero.theme-violet {
-  background: radial-gradient(120% 160% at 10% 0%, #8f6bff 0%, #4a2ce6 45%, #201055 100%);
+  background-color: #4a2ce6;
+  background-image: url('/hero-texture.png'), radial-gradient(120% 160% at 10% 0%, #8f6bff 0%, #4a2ce6 45%, #201055 100%);
 }
 .page-hero.theme-coral {
-  background: radial-gradient(120% 160% at 10% 0%, #ff9f8f 0%, #ff6b6b 45%, #7a1f1f 100%);
+  background-color: #ff6b6b;
+  background-image: url('/hero-texture.png'), radial-gradient(120% 160% at 10% 0%, #ff9f8f 0%, #ff6b6b 45%, #7a1f1f 100%);
 }
 .page-hero.theme-mint {
-  background: radial-gradient(120% 160% at 10% 0%, #6ee0c8 0%, #16c0a8 45%, #0b4a40 100%);
+  background-color: #16c0a8;
+  background-image: url('/hero-texture.png'), radial-gradient(120% 160% at 10% 0%, #6ee0c8 0%, #16c0a8 45%, #0b4a40 100%);
 }
 .page-hero.theme-blue {
-  background: radial-gradient(120% 160% at 10% 0%, #7bb0ff 0%, #2f8fff 45%, #0f2f5c 100%);
+  background-color: #2f8fff;
+  background-image: url('/hero-texture.png'), radial-gradient(120% 160% at 10% 0%, #7bb0ff 0%, #2f8fff 45%, #0f2f5c 100%);
 }
 .page-hero.theme-amber {
-  background: radial-gradient(120% 160% at 10% 0%, #ffcf7a 0%, #ffb020 45%, #7a4f0b 100%);
+  background-color: #ffb020;
+  background-image: url('/hero-texture.png'), radial-gradient(120% 160% at 10% 0%, #ffcf7a 0%, #ffb020 45%, #7a4f0b 100%);
 }
-.page-hero::before { width: 220px; height: 220px; background: rgba(255,255,255,.18); top: -60px; right: 60px; }
-.page-hero::after  { width: 160px; height: 160px; background: rgba(0,0,0,.12); bottom: -60px; left: 40%; }
 .page-hero-text { position: relative; z-index: 1; }
 .page-hero-text h1 { color: #fff; font-size: 24px; margin-bottom: 4px; }
 .page-hero-text p { color: rgba(255,255,255,.82); font-size: 13.5px; margin: 0; }
