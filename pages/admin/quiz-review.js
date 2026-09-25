@@ -37,17 +37,26 @@ export default function QuizReview() {
   const teamOptions = Array.from(new Set(Object.values(employees).map((e) => e.team).filter(Boolean))).sort();
   const visibleAttempts = attempts.filter((a) => filterTeam === "all" || (employees[a.user_id]?.team || "") === filterTeam);
 
-  // Opens ANY attempt (pending or already-completed) for a full manual
-  // review — every question, screenshot or multiple-choice, side by side
-  // with what the employee actually answered.
   const openAttempt = async (attempt) => {
     setOpen(attempt);
-    setOverrides({ ...(attempt.mcq_overrides || {}) });
     setReviewIndex(0);
 
     const { data: questions } = await supabase.from("quiz_questions").select("*").eq("quiz_id", attempt.quiz_id).order("sort_order", { ascending: true });
     const aiReviewByQ = {};
     (attempt.ai_review || []).forEach((r) => { aiReviewByQ[r.questionId] = r; });
+
+    // Bring back every past manual correction — MCQ overrides AND
+    // screenshot overrides alike — so reopening an already-reviewed
+    // attempt shows exactly what was last saved, not the original AI
+    // verdict. This is the actual fix for corrections silently
+    // reverting on reopen.
+    const seededOverrides = { ...(attempt.mcq_overrides || {}) };
+    (attempt.ai_review || []).forEach((r) => {
+      if (r.adminOverride !== null && r.adminOverride !== undefined) {
+        seededOverrides[r.questionId] = r.adminOverride;
+      }
+    });
+    setOverrides(seededOverrides);
 
     const items = [];
     for (const q of questions || []) {
@@ -55,7 +64,8 @@ export default function QuizReview() {
         const r = aiReviewByQ[q.id];
         items.push({
           type: "screenshot", questionId: q.id, question: q.question,
-          paths: r?.paths || [], aiCorrect: r?.correct ?? false, aiFeedback: r?.feedback || "No AI review recorded.",
+          paths: r?.paths || [], description: r?.description || "",
+          aiCorrect: r?.correct ?? false, aiFeedback: r?.feedback || "No AI review recorded.",
         });
       } else {
         const a = (attempt.answers || {})[q.id];
@@ -92,7 +102,7 @@ export default function QuizReview() {
       const decided = overrides[item.questionId] !== undefined ? overrides[item.questionId] : (item.type === "screenshot" ? item.aiCorrect : item.baseCorrect);
       if (decided) correctCount += 1;
       if (item.type === "screenshot") {
-        newAiReview.push({ questionId: item.questionId, question: item.question, paths: item.paths, correct: item.aiCorrect, feedback: item.aiFeedback, adminOverride: overrides[item.questionId] !== undefined ? overrides[item.questionId] : null });
+        newAiReview.push({ questionId: item.questionId, question: item.question, paths: item.paths, description: item.description, correct: item.aiCorrect, feedback: item.aiFeedback, adminOverride: overrides[item.questionId] !== undefined ? overrides[item.questionId] : null });
       } else if (overrides[item.questionId] !== undefined) {
         newMcqOverrides[item.questionId] = overrides[item.questionId];
       }
@@ -225,6 +235,12 @@ export default function QuizReview() {
                               <img key={pi} src={url} alt={`Submission ${pi + 1}`} style={{ maxWidth: 820, width: "100%", maxHeight: 700, objectFit: "contain", borderRadius: 10, border: "1px solid var(--line)" }} />
                             ))}
                           </div>
+                          {current.description && (
+                            <div className="tile" style={{ marginBottom: 14, background: "var(--brand-soft)" }}>
+                              <div className="mini" style={{ fontWeight: 700, marginBottom: 4 }}>✏️ Employee's written note:</div>
+                              <div style={{ fontSize: 14 }}>{current.description}</div>
+                            </div>
+                          )}
                           <div className="mini" style={{ marginBottom: 14, fontSize: 14 }}>
                             AI verdict: <b style={{ color: current.aiCorrect ? "#15803d" : "var(--red-dark)" }}>{current.aiCorrect ? "Correct" : "Incorrect"}</b> — {current.aiFeedback}
                           </div>
