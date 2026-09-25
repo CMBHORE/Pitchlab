@@ -473,3 +473,57 @@ p.sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
 .row-actions button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; display: grid; place-items: center; font-size: 12px; }
 .row-actions button:hover { background: var(--card-2); color: var(--text); }
 .row-actions button.danger:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-soft); }
+
+/* ============================================================
+   Nav icon badges — a consistent, colorful glyph per LMS section
+   ============================================================ */
+.nav-icon {
+  width: 24px; height: 24px; border-radius: 8px; flex: none;
+  display: inline-grid; place-items: center; font-size: 13px;
+  margin-right: 10px;
+}
+.nav a.active .nav-icon { background: rgba(255,255,255,.22) !important; }
+.nav-icon.violet { background: var(--brand-soft); }
+.nav-icon.coral  { background: var(--coral-soft); }
+.nav-icon.mint   { background: var(--mint-soft); }
+.nav-icon.amber  { background: var(--amber-soft); }
+.nav-icon.blue   { background: var(--info-soft); }
+.nav-icon.gray   { background: var(--card-2); }
+
+/* ============================================================
+   Page hero banners — same decorative gradient-and-blur language
+   as the login page, sized as a header strip for content pages
+   ============================================================ */
+.page-hero {
+  position: relative; overflow: hidden; border-radius: var(--r-card);
+  padding: 28px 32px; margin-bottom: 22px; color: #fff;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+}
+.page-hero::before, .page-hero::after {
+  content: ""; position: absolute; border-radius: 50%; filter: blur(10px); pointer-events: none;
+}
+.page-hero.theme-violet {
+  background: radial-gradient(120% 160% at 10% 0%, #8f6bff 0%, #4a2ce6 45%, #201055 100%);
+}
+.page-hero.theme-coral {
+  background: radial-gradient(120% 160% at 10% 0%, #ff9f8f 0%, #ff6b6b 45%, #7a1f1f 100%);
+}
+.page-hero.theme-mint {
+  background: radial-gradient(120% 160% at 10% 0%, #6ee0c8 0%, #16c0a8 45%, #0b4a40 100%);
+}
+.page-hero.theme-blue {
+  background: radial-gradient(120% 160% at 10% 0%, #7bb0ff 0%, #2f8fff 45%, #0f2f5c 100%);
+}
+.page-hero.theme-amber {
+  background: radial-gradient(120% 160% at 10% 0%, #ffcf7a 0%, #ffb020 45%, #7a4f0b 100%);
+}
+.page-hero::before { width: 220px; height: 220px; background: rgba(255,255,255,.18); top: -60px; right: 60px; }
+.page-hero::after  { width: 160px; height: 160px; background: rgba(0,0,0,.12); bottom: -60px; left: 40%; }
+.page-hero-text { position: relative; z-index: 1; }
+.page-hero-text h1 { color: #fff; font-size: 24px; margin-bottom: 4px; }
+.page-hero-text p { color: rgba(255,255,255,.82); font-size: 13.5px; margin: 0; }
+.page-hero-glyph {
+  position: relative; z-index: 1; font-size: 64px; line-height: 1; opacity: .9;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.25));
+}
+@media (max-width: 700px) { .page-hero-glyph { display: none; } }
