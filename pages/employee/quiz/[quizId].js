@@ -32,6 +32,7 @@ export default function TakeQuiz() {
 
   const timerRef = useRef(null);
   const autoSubmittedRef = useRef(false);
+  const deadlineRef = useRef(null); // absolute wall-clock time the quiz must end
 
   const authHeader = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -55,8 +56,9 @@ export default function TakeQuiz() {
         setAttemptId(existing.id);
         setAnswers(existing.answers || {});
         if (q?.time_limit_minutes) {
-          const elapsed = Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000);
-          const remaining = q.time_limit_minutes * 60 - elapsed;
+          const deadline = new Date(existing.started_at).getTime() + q.time_limit_minutes * 60 * 1000;
+          deadlineRef.current = deadline;
+          const remaining = Math.round((deadline - Date.now()) / 1000);
           setTimeLeft(Math.max(0, remaining));
           if (remaining <= 0) setTimeUp(true); // they came back after time already expired
         }
@@ -66,7 +68,10 @@ export default function TakeQuiz() {
           .insert({ quiz_id: quizId, user_id: me.id, status: "in_progress", started_at: new Date().toISOString(), answers: {}, score: 0, passed: false })
           .select().single();
         setAttemptId(created?.id || null);
-        if (q?.time_limit_minutes) setTimeLeft(q.time_limit_minutes * 60);
+        if (q?.time_limit_minutes) {
+          deadlineRef.current = Date.now() + q.time_limit_minutes * 60 * 1000;
+          setTimeLeft(q.time_limit_minutes * 60);
+        }
       }
       setInitializing(false);
     })();
@@ -77,15 +82,37 @@ export default function TakeQuiz() {
   // during that gap, and auto-submit exactly once.
   useEffect(() => {
     if (timeLeft === null || result) return;
-    if (timeLeft <= 0) {
-      setTimeUp(true);
-      if (!autoSubmittedRef.current) { autoSubmittedRef.current = true; doSubmit(true); }
-      return;
-    }
-    timerRef.current = setTimeout(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
-    return () => clearTimeout(timerRef.current);
+
+    // Always compute remaining time from the real clock against a fixed
+    // deadline, rather than counting down tick by tick. A tab sitting in
+    // the background gets its timers throttled or paused by the browser
+    // to save battery — a long assessment is very likely to sit
+    // backgrounded at some point, so a pure "-1 each second" countdown
+    // can silently stall and never reach zero. Checking real elapsed
+    // time instead means it's correct the instant we check, no matter
+    // how long the tab was inactive.
+    const checkDeadline = () => {
+      if (!deadlineRef.current) return;
+      const remaining = Math.round((deadlineRef.current - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setTimeLeft(0);
+        setTimeUp(true);
+        if (!autoSubmittedRef.current) { autoSubmittedRef.current = true; doSubmit(true); }
+      } else {
+        setTimeLeft(remaining);
+      }
+    };
+
+    timerRef.current = setInterval(checkDeadline, 1000);
+    // Catch up immediately if the tab was backgrounded and just became
+    // active again — don't wait for the next regular tick.
+    document.addEventListener("visibilitychange", checkDeadline);
+    return () => {
+      clearInterval(timerRef.current);
+      document.removeEventListener("visibilitychange", checkDeadline);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, result]);
+  }, [timeLeft === null, result]);
 
   const saveAnswer = async (questionId, value) => {
     if (timeUp) return; // no changes accepted once time is up
@@ -200,7 +227,7 @@ export default function TakeQuiz() {
     setMsg(null);
     setSubmitting(true);
     setShowSubmitPopup(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
 
     // A slow AI grading pass can occasionally exceed the server's own time
     // limit. Rather than let the button spin forever with no explanation,
