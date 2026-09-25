@@ -153,10 +153,22 @@ export default function AdminHome() {
             <div className="kpi-value">{stats?.courses ?? "…"}</div>
             <div className="kpi-label">Active Courses</div>
           </div>
-          <div className="card kpi-card plain">
-            <div className="kpi-top"><div className="kpi-icon-circle blue">🎯</div></div>
-            <div className="kpi-value">{stats?.avg ?? "…"}%</div>
-            <div className="kpi-label">Avg. Completion Rate</div>
+          <div className="card kpi-card plain" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div className="kpi-value">{stats?.avg ?? 0}%</div>
+              <div className="kpi-label">Avg. Completion Rate</div>
+            </div>
+            <div className="ring-wrap">
+              <svg className="ring" width="54" height="54" viewBox="0 0 54 54">
+                <circle className="ring-track" cx="27" cy="27" r="23" strokeWidth="6" />
+                <circle
+                  className="ring-fill violet" cx="27" cy="27" r="23" strokeWidth="6"
+                  strokeDasharray={2 * Math.PI * 23}
+                  strokeDashoffset={2 * Math.PI * 23 * (1 - (stats?.avg ?? 0) / 100)}
+                />
+              </svg>
+              <div className="ring-num" style={{ fontSize: 12 }}>{stats?.avg ?? 0}%</div>
+            </div>
           </div>
           <div className="card kpi-card plain">
             <div className="kpi-top"><div className="kpi-icon-circle" style={{ background: "var(--amber-soft)", color: "#b3740c" }}>🎤</div></div>
@@ -244,15 +256,17 @@ export default function AdminHome() {
             </div>
 
             <div className="grid2">
-              <div className="card pad">
-                <div style={{ fontWeight: 700 }}>Build training</div>
-                <div className="mini" style={{ marginBottom: 12 }}>Create courses and roleplay scenarios.</div>
-                <button className="btn primary" onClick={() => router.push("/admin/courses")}>Manage courses</button>
+              <div className="action-card violet">
+                <div className="action-card-icon">📚</div>
+                <div style={{ fontWeight: 700, position: "relative", zIndex: 1 }}>Build training</div>
+                <div className="mini" style={{ marginBottom: 12, position: "relative", zIndex: 1 }}>Create courses and roleplay scenarios.</div>
+                <button className="btn primary" onClick={() => router.push("/admin/courses")} style={{ position: "relative", zIndex: 1 }}>Manage courses</button>
               </div>
-              <div className="card pad">
-                <div style={{ fontWeight: 700 }}>Your team</div>
-                <div className="mini" style={{ marginBottom: 12 }}>Add people and assign them training.</div>
-                <button className="btn dark" onClick={() => router.push("/admin/employees")}>Manage team</button>
+              <div className="action-card coral">
+                <div className="action-card-icon" style={{ background: "var(--coral-soft)", color: "var(--coral)" }}>🧑‍🤝‍🧑</div>
+                <div style={{ fontWeight: 700, position: "relative", zIndex: 1 }}>Your team</div>
+                <div className="mini" style={{ marginBottom: 12, position: "relative", zIndex: 1 }}>Add people and assign them training.</div>
+                <button className="btn dark" onClick={() => router.push("/admin/employees")} style={{ position: "relative", zIndex: 1 }}>Manage team</button>
               </div>
             </div>
           </div>
