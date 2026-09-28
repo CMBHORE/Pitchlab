@@ -4,20 +4,20 @@ import { supabase } from "../lib/supabaseClient";
 import ThemeToggle from "./ThemeToggle";
 
 const STAFF_LINKS = [
-  ["/admin/courses", "Courses", "courses"],
-  ["/admin/scenarios", "Roleplays", "scenarios"],
-  ["/admin/quizzes", "Assessments", "quizzes"],
-  ["/admin/knowledge", "Knowledge Base", "knowledge"],
-  ["/admin/classroom", "Classroom", "classroom"],
+  ["/admin/courses", "Courses", "courses", "📚", "violet"],
+  ["/admin/scenarios", "Roleplays", "scenarios", "🎭", "coral"],
+  ["/admin/quizzes", "Assessments", "quizzes", "📝", "mint"],
+  ["/admin/knowledge", "Knowledge Base", "knowledge", "📖", "amber"],
+  ["/admin/classroom", "Classroom", "classroom", "👨‍🏫", "blue"],
 ];
 
 const REPORT_LINKS = [
-  ["/admin/reports", "Call Reports", "reports"],
-  ["/admin/improvements", "Areas of Improvement", "reports"],
-  ["/admin/roleplay-coverage-report", "Roleplay Coverage", "reports"],
-  ["/admin/quiz-review", "Assessment Review", "reports"],
-  ["/admin/voice-logs", "Voice Call Logs", "reports"],
-  ["/admin/screenshot-review", "Screenshot Submissions", "reports"],
+  ["/admin/reports", "Call Reports", "reports", "📊", "violet"],
+  ["/admin/improvements", "Areas of Improvement", "reports", "📈", "mint"],
+  ["/admin/roleplay-coverage-report", "Roleplay Coverage", "reports", "🎭", "coral"],
+  ["/admin/quiz-review", "Assessment Review", "reports", "📋", "amber"],
+  ["/admin/voice-logs", "Voice Call Logs", "reports", "💻", "blue"],
+  ["/admin/screenshot-review", "Screenshot Submissions", "reports", "📷", "gray"],
 ];
 
 function iconBtnStyle() {
@@ -47,33 +47,33 @@ export default function Sidebar({ role, me }) {
   let groups;
   if (role === "admin") {
     groups = [
-      { label: null, links: [["/admin", "Overview"]] },
+      { label: null, links: [["/admin", "Overview", null, "📈", "violet"]] },
       { label: "Training", links: STAFF_LINKS.map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.map(([h, l]) => [h, l]) },
       {
         label: null,
         links: me?.role === "admin"
-          ? [["/admin/employees", "Team"], ["/admin/manage-admins", "Admin Accounts"], ["/admin/admin-activity", "Admin Activity"]]
-          : [["/admin/employees", "Team"]],
+          ? [["/admin/employees", "Team", null, "🧑‍🤝‍🧑", "coral"], ["/admin/manage-admins", "Admin Accounts", null, "⚙️", "gray"], ["/admin/admin-activity", "Admin Activity", null, "📊", "blue"], ["/admin/gallery", "Gallery", null, "🖼️", "coral"]]
+          : [["/admin/employees", "Team", null, "🧑‍🤝‍🧑", "coral"]],
       },
     ];
   } else if (role === "trainer") {
     const perms = me?.permissions || {};
     groups = [
-      { label: null, links: [["/trainer", "Overview"]] },
+      { label: null, links: [["/trainer", "Overview", null, "📈", "violet"]] },
       { label: "Training", links: STAFF_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
       { label: "Reports", links: REPORT_LINKS.filter(([, , key]) => perms[key]).map(([h, l]) => [h, l]) },
     ];
   } else {
     groups = [
       { label: null, links: [
-        ["/employee", "Dashboard"],
-        ["/employee/courses", "Courses"],
-        ["/employee/roleplay", "Roleplay"],
-        ["/employee/my-calls", "My Calls"],
-        ["/employee/improvements", "My Improvement"],
-        ["/employee/assessment-scores", "My Assessment Scores"],
-        ["/employee/classroom", "Classroom"],
+        ["/employee", "Dashboard", null, "📈", "violet"],
+        ["/employee/courses", "Courses", null, "📚", "violet"],
+        ["/employee/roleplay", "Roleplay", null, "🎭", "coral"],
+        ["/employee/my-calls", "My Calls", null, "💻", "blue"],
+        ["/employee/improvements", "My Improvement", null, "🥇", "amber"],
+        ["/employee/assessment-scores", "My Assessment Scores", null, "🏆", "amber"],
+        ["/employee/classroom", "Classroom", null, "👨‍🏫", "mint"],
       ] },
     ];
   }
@@ -131,13 +131,15 @@ export default function Sidebar({ role, me }) {
                   <span style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s", fontSize: 11 }}>▸</span>
                 </div>
               )}
-              {isOpen && g.links.map(([href, label]) => (
+              {isOpen && g.links.map(([href, label, , icon, color]) => (
                 <a
                   key={href}
                   href={href}
                   className={isActive(href) ? "active" : ""}
                   onClick={(e) => { e.preventDefault(); router.push(href); }}
+                  style={{ display: "flex", alignItems: "center" }}
                 >
+                  {icon && <span className={`nav-icon ${color || "gray"}`}>{icon}</span>}
                   {label}
                 </a>
               ))}
