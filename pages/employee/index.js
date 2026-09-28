@@ -4,6 +4,7 @@ import { useProfile } from "../../lib/useProfile";
 import { loadEmployeeData, courseProgress, Ring } from "../../lib/lms";
 import { supabase } from "../../lib/supabaseClient";
 import Sidebar from "../../components/Sidebar";
+import Gallery from "../../components/Gallery";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer,
 } from "recharts";
@@ -117,6 +118,11 @@ export default function EmployeeHome() {
               <div><div className="stat-value">{leaderboard.findIndex((e) => e.id === me.id) === -1 ? "—" : `#${leaderboard.findIndex((e) => e.id === me.id) + 1}`}</div><div className="stat-label">Team rank</div></div>
             </div>
           </div>
+        </div>
+
+        {/* Photos the admin adds from Admin → Gallery. Shows nothing if there are none. */}
+        <div style={{ marginTop: 22 }}>
+          <Gallery />
         </div>
 
         {nextCourse && (
