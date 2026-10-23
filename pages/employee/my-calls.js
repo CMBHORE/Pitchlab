@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useProfile } from "../../lib/useProfile";
 import { supabase } from "../../lib/supabaseClient";
 import Sidebar from "../../components/Sidebar";
+import RubricReport from "../../components/RubricReport";
 
 const PAGE_SIZE = 10;
 
@@ -201,14 +202,7 @@ export default function MyCalls() {
                 </div>
               )}
 
-              <div className="grid2">
-                {Object.entries(open.parameter_scores || {}).map(([name, v]) => (
-                  <div key={name} className="tile">
-                    <div className="row-between"><b style={{ fontSize: 13 }}>{name}</b><span className="pill red">{v.score}%</span></div>
-                    <div className="mini" style={{ marginTop: 6 }}>{v.comment}</div>
-                  </div>
-                ))}
-              </div>
+              <RubricReport report={open} />
               {open.recording_url ? (
                 <a href={open.recording_url} target="_blank" rel="noreferrer" className="btn outline full no-print" style={{ marginTop: 14 }}>⬇ Download call recording</a>
               ) : (
