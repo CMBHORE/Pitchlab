@@ -1,16 +1,23 @@
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import {
+  SERVICES_SECTION, SERVICES_TARGET, MARKETPLACE_SERVICES,
+  buildSectionResults, computeOverall, rubricIsUsable, buildServices,
+  rubricPromptText, sectionsSchemaExample, servicesSchemaExample,
+} from "../../lib/pitchRubric";
 
 const GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash-lite"];
 
-const PARAMETERS = [
-  "Product Knowledge",
-  "Understanding Customer Needs",
-  "Mapping Customer Pain Points to Solutions",
-  "Communication & Confidence",
-  "Objection Handling",
-  "Rapport Building",
-  "Overall Sales Readiness",
-];
+
+const RUBRIC_INSTRUCTIONS = [
+  "HOW TO EVALUATE: judge EVERY criterion below with exactly one status:",
+  "- \"met\": clearly done well.",
+  "- \"partial\": attempted but incomplete or weak.",
+  "- \"not_met\": not done, or done poorly.",
+  "- \"na\": not applicable to this call.",
+  "A criterion is \"na\" ONLY when the scenario never set up that topic (its goal, persona, product focus and required sections do not involve it) AND the rep never raised it. If the scenario needed it (for example a full demo) or the rep started on it, judge it - skipping something the call needed is \"not_met\", not \"na\".",
+  "The sections \"Rapport Building\" and \"Closure\" are always applicable.",
+  "Give evidence for every criterion that is not \"na\", based on what was actually said. Return the criteria of each section in the exact order listed, one entry per criterion, and use the section names exactly as written as the keys of \"sections\"."
+].join("\n");
 
 async function requireUser(req) {
   const auth = req.headers.authorization || "";
@@ -154,25 +161,22 @@ export default async function handler(req, res) {
   var hasStages = scenario && Array.isArray(scenario.demo_stages) && scenario.demo_stages.length > 0;
 
   var schemaExample = {
-    overall: "0-100",
     priority_action: "one specific actionable sentence",
     executive_summary: "2-3 sentence summary",
     progress_note: "1-2 sentences comparing to previous call",
     strengths: ["short phrase", "short phrase"],
     improvements: ["short phrase", "short phrase", "short phrase"],
-    parameter_scores: {},
+    sections: sectionsSchemaExample(),
+    services_covered: servicesSchemaExample(),
     vas_coverage: [],
     stage_coverage: [],
     empathy_score: "0-100",
     adaptability_score: "0-100",
     ei_feedback: "one sentence",
     coachable_moments: [
-      { turn: 1, said: "quote", why_it_matters: "one sentence", better_approach: "one sentence", competency: "one of the 7 parameter names" },
+      { turn: 1, said: "quote", why_it_matters: "one sentence", better_approach: "one sentence", competency: "exactly one of the six section names" },
     ],
   };
-  PARAMETERS.forEach(function (p) {
-    schemaExample.parameter_scores[p] = { score: "0-100", comment: "one sentence" };
-  });
   if (hasVas) {
     schemaExample.vas_coverage = vasEntries.map(function (v) {
       return { service_name: v.service_name, identified: false, comment: "one short sentence on whether/how the rep caught this and pitched the right product" };
@@ -188,15 +192,15 @@ export default async function handler(req, res) {
   promptParts.push("You are a senior sales trainer auditing a roleplay conversation for a restaurant-POS sales team.");
   promptParts.push(scenarioLine);
   promptParts.push(previousLine);
-  promptParts.push("Score the conversation strictly against these 7 audit parameters, each 0-100: " + PARAMETERS.join(", ") + ".");
-  promptParts.push("If this was a full product demo session, weigh Product Knowledge and breadth of feature coverage heavily — a good demo should cover multiple product areas, not just one.");
+  promptParts.push("Evaluate the conversation against the company's official pitch evaluation rubric below. Terms like OM, MP, OOW, OOR, FCR, KDS and Captain App are Petpooja roles and products - judge a topic as covered if the rep addressed it by name OR clearly by description.");
+  promptParts.push(RUBRIC_INSTRUCTIONS + "\n\n" + rubricPromptText() + "\n\nMARKETPLACE SERVICES CHECKLIST: for each of these " + MARKETPLACE_SERVICES.length + " services, say whether the rep actually explained or demonstrated it in the call (covered true/false): " + MARKETPLACE_SERVICES.join(", ") + ". The target is to cover at least " + SERVICES_TARGET + " of them. Use these exact service names in services_covered.");
   if (vasLine) {
     promptParts.push(vasLine);
-    promptParts.push("This is a hard rule, not a soft suggestion: count how many of the listed pain points the rep actually identified (vas_coverage identified=true) versus the total listed. If they identified fewer than half, the \"Mapping Customer Pain Points to Solutions\" score MUST be 50 or below, no matter how good the rest of the call was. If they identified more than half but not all, score it in the 55-75 range depending on quality. Only score above 75 if nearly all points were caught. Also make sure your \"overall\" score is not inflated beyond what this and the other parameter scores would reasonably average out to.");
+    promptParts.push("This is a hard rule, not a soft suggestion: count how many of the listed pain points the rep actually identified (vas_coverage identified=true) versus the total listed. If they identified fewer than half, the criterion \"Connects features to outlet's specific pain points (not feature-dumping)\" MUST be not_met, and so must \"Connects Marketing Manager to outlet's existing marketing pain points\" if that criterion applies. If they identified more than half but not all, mark those criteria partial. Only mark them met if nearly all points were caught. Do not let the rest of the call inflate this.");
   }
   if (stageLine) {
     promptParts.push(stageLine);
-    promptParts.push("Let how well the rep followed this required sequence meaningfully influence your score for \"Overall Sales Readiness\" and \"Communication & Confidence\".");
+    promptParts.push("Let how well the rep followed this required sequence meaningfully influence the demo-flow criteria (\"Live walkthrough is smooth, no fumbling through screens\" and \"Demo sequence follows a logical story (not screen-hopping)\") wherever those apply.");
   }
   promptParts.push("Be honest and specific - do not inflate scores. If the rep responded incoherently, off-topic, or in the wrong language for the context, scores should be very low and say so plainly.");
   promptParts.push("Respond with ONLY a JSON object, no markdown, no code fences, matching exactly this shape (values are placeholders showing type/format, replace them with real content" +
@@ -206,7 +210,7 @@ export default async function handler(req, res) {
   promptParts.push(JSON.stringify(schemaExample));
   promptParts.push("The \"identified\", \"covered\", and \"followed_order\" fields must be real JSON boolean values (true or false, no quotation marks) — never the text \"true\"/\"false\" as a string. Make sure these always agree with your comment for that entry.");
   promptParts.push("Include at most 3 coachable_moments, the most instructive ones.");
-  promptParts.push("Keep every comment field in vas_coverage and stage_coverage to 10 words or fewer.");
+  promptParts.push("Keep every comment field in vas_coverage and stage_coverage to 10 words or fewer. Keep every evidence field to 10 words or fewer and every section comment to one short sentence. Do not include an overall score - it is calculated separately from your criterion judgements.");
   promptParts.push("Transcript:");
   promptParts.push(transcript);
 
@@ -224,8 +228,8 @@ export default async function handler(req, res) {
     for (var attempt = 1; attempt <= attempts; attempt++) {
       var text = await callGeminiOnce(prompt);
       var result = tryParseJson(text);
-      if (result.ok) { parsed = result.data; break; }
-      lastSnippet = result.snippet;
+      if (result.ok && rubricIsUsable(result.data)) { parsed = result.data; break; }
+      lastSnippet = result.ok ? "(the answer did not follow the rubric format)" : result.snippet;
       // brief pause before retrying, so a shared rate limit has a moment to ease
       await new Promise(function (resolve) { setTimeout(resolve, 350 * attempt); });
     }
@@ -235,11 +239,17 @@ export default async function handler(req, res) {
     var r = parsed;
 
     var clamp = function (n) { return Math.max(0, Math.min(100, Math.round(Number(n) || 0))); };
+    // Section scores, criterion detail and the overall score are all calculated
+    // here from the AI's per-criterion judgements (marks / applicable criteria),
+    // so the numbers always add up exactly.
+    var sectionResults = buildSectionResults(r.sections);
+    var overallScore = computeOverall(sectionResults);
     var cleanParams = {};
-    PARAMETERS.forEach(function (p) {
-      var v = (r.parameter_scores && r.parameter_scores[p]) || {};
-      cleanParams[p] = { score: clamp(v.score), comment: String(v.comment || "").slice(0, 300) };
+    sectionResults.forEach(function (s) {
+      cleanParams[s.name] = { score: s.score, comment: s.comment, marks: s.marks, applicable: s.applicable, criteria: s.criteria };
     });
+    cleanParams[SERVICES_SECTION].services = buildServices(r.services_covered);
+    cleanParams[SERVICES_SECTION].services_target = SERVICES_TARGET;
 
     var cleanVas = Array.isArray(r.vas_coverage) ? r.vas_coverage.slice(0, 15).map(function (v) {
       return {
@@ -261,7 +271,7 @@ export default async function handler(req, res) {
     var row = {
       user_id: gate.userId,
       scenario_id: scenarioId || null,
-      overall: clamp(r.overall),
+      overall: overallScore,
       priority_action: String(r.priority_action || "").slice(0, 400),
       executive_summary: String(r.executive_summary || "").slice(0, 800),
       progress_note: String(r.progress_note || "").slice(0, 400),
