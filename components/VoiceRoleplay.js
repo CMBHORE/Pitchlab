@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import RubricReport from "./RubricReport";
 
 /* ---------- small audio helpers ---------- */
 function floatTo16BitPCM(float32) {
@@ -478,14 +479,7 @@ export default function VoiceRoleplay({ scenario, onClose }) {
             )}
 
             <div className="kpi-label" style={{ margin: "16px 0 8px" }}>Evaluation Feedback</div>
-            <div className="grid2">
-              {Object.entries(report.parameter_scores || {}).map(([name, v]) => (
-                <div key={name} className="tile">
-                  <div className="row-between"><b style={{ fontSize: 13 }}>{name}</b><span className="pill red">{v.score}%</span></div>
-                  <div className="mini" style={{ marginTop: 6 }}>{v.comment}</div>
-                </div>
-              ))}
-            </div>
+            <RubricReport report={report} />
 
             <div className="grid2" style={{ marginTop: 12 }}>
               <div className="tile"><div className="kpi-label">Empathy Score</div><div className="kpi" style={{ fontSize: 24 }}>{report.empathy_score}/100</div></div>
